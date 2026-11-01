@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toko Kita ID - Toko Online</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    .cart-sidebar { transition: transform 0.3s ease-in-out; }
+    .cart-sidebar.open { transform: translateX(0); }
+    .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px -8px rgba(0,0,0,0.15); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <nav class="bg-white shadow-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-store text-indigo-600 text-2xl"></i>
+          <span class="text-xl font-bold text-indigo-700">Toko Kita ID</span>
+        </div>
+        <button id="cartBtn" class="relative p-2 hover:bg-gray-100 rounded-full transition">
+          <i class="fas fa-shopping-cart text-xl text-gray-700"></i>
+          <span id="cartCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center hidden">0</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <section class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-12">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+      <h1 class="text-3xl md:text-4xl font-bold mb-3">Selamat Datang di Toko Kita ID</h1>
+      <p class="text-indigo-100 text-lg">Belanja produk terbaik dengan harga terbaik</p>
+    </div>
+  </section>
+
+  <main class="max-w-7xl mx-auto px-4 py-10">
+    <div class="flex justify-between items-center mb-8">
+      <h2 class="text-2xl font-bold">Semua Produk</h2>
+      <div class="text-sm text-gray-500">8 produk</div>
+    </div>
+    <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+  </main>
+
+  <div id="cartOverlay" class="fixed inset-0 bg-black bg-opacity-40 z-40 hidden"></div>
+  <div id="cartSidebar" class="cart-sidebar fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 transform translate-x-full flex flex-col">
+    <div class="p-5 border-b flex justify-between items-center">
+      <h3 class="text-xl font-bold">Keranjang Belanja</h3>
+      <button id="closeCart" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+    </div>
+    <div id="cartItems" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
+    <div class="border-t p-5 space-y-4">
+      <div class="flex justify-between text-lg font-semibold">
+        <span>Total:</span>
+        <span id="cartTotal">Rp 0</span>
+      </div>
+      <button id="checkoutBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-medium transition disabled:opacity-50">
+        Checkout
+      </button>
+    </div>
+  </div>
+
+  <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+      <div class="flex justify-between items-center mb-5">
+        <h3 class="text-xl font-bold">Checkout</h3>
+        <button id="closeCheckout" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+      <form id="checkoutForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Nama Lengkap</label>
+          <input type="text" id="nama" required class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500" placeholder="Masukkan nama Anda">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Nomor WhatsApp</label>
+          <input type="tel" id="whatsapp" required class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500" placeholder="08xxxxxxxxxx">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Alamat Lengkap</label>
+          <textarea id="alamat" required rows="3" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500" placeholder="Alamat pengiriman"></textarea>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <div class="flex justify-between font-semibold">
+            <span>Total Pembayaran</span>
+            <span id="checkoutTotal">Rp 0</span>
+          </div>
+        </div>
+        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium">
+          Konfirmasi Pesanan
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="successModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-8 text-center">
+      <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-check text-3xl text-green-600"></i>
+      </div>
+      <h3 class="text-xl font-bold mb-2">Pesanan Berhasil!</h3>
+      <p class="text-gray-600 mb-6">Terima kasih sudah berbelanja di <strong>Toko Kita ID</strong>. Tim kami akan segera menghubungi Anda via WhatsApp.</p>
+      <button id="closeSuccess" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium">
+        Kembali Belanja
+      </button>
+    </div>
+  </div>
+
+  <footer class="bg-gray-800 text-gray-300 py-8 mt-12">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+      <p class="font-semibold text-white mb-1">Toko Kita ID</p>
+      <p class="text-sm">&copy; 2026 Toko Kita ID. Semua hak dilindungi.</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
