@@ -17,9 +17,43 @@
   <main class="max-w-3xl mx-auto px-4 py-6 space-y-4">
     <h1 class="text-xl font-bold">Tinjauan admin</h1>
     <p id="adminBanner" class="text-sm bg-amber-50 border border-amber-200 text-amber-950 rounded-lg p-3"></p>
+    <nav class="flex flex-wrap gap-2" aria-label="Bagian admin">
+      <a href="#produk" class="min-h-11 inline-flex items-center px-3 rounded-lg bg-indigo-600 text-white">Produk</a>
+      <a href="#stok" class="min-h-11 inline-flex items-center px-3 rounded-lg border">Stok</a>
+      <a href="#pesanan" class="min-h-11 inline-flex items-center px-3 rounded-lg border">Pesanan</a>
+    </nav>
     <p id="lencanaPesanan" class="text-sm font-medium"></p>
-    <div id="antrean" class="space-y-3"></div>
-    <h2 class="font-semibold">Pesanan</h2>
+    <section id="produk" class="space-y-3">
+      <h2 class="font-semibold">Produk</h2>
+      <label class="block text-sm" for="cariProduk">Cari produk</label>
+      <input id="cariProduk" class="w-full border rounded-lg px-3 py-2.5 text-base" placeholder="Nama atau kategori" />
+      <label class="block text-sm" for="saringProduk">Status produk</label>
+      <select id="saringProduk" class="w-full border rounded-lg px-3 py-2.5 text-base">
+        <option value="">Semua</option>
+        <option value="menunggu">Menunggu</option>
+        <option value="disetujui">Disetujui</option>
+        <option value="ditolak">Ditolak</option>
+        <option value="disembunyikan">Disembunyikan</option>
+        <option value="diarsipkan">Diarsipkan</option>
+      </select>
+      <div id="antrean" class="space-y-3"></div>
+    </section>
+    <section id="stok" class="space-y-3">
+      <h2 class="font-semibold">Stok</h2>
+      <p class="text-sm text-gray-600">Fisik adalah jumlah di tangan. Cadangan adalah pesanan sandbox yang belum lunas. Tersedia = fisik − cadangan. Ambang menipis hanya penanda di aplikasi, tanpa kirim notifikasi keluar.</p>
+      <label class="block text-sm" for="cariStok">Cari stok</label>
+      <input id="cariStok" class="w-full border rounded-lg px-3 py-2.5 text-base" placeholder="Nama atau kategori" />
+      <label class="block text-sm" for="saringStok">Kondisi</label>
+      <select id="saringStok" class="w-full border rounded-lg px-3 py-2.5 text-base">
+        <option value="">Semua</option>
+        <option value="Cukup">Cukup</option>
+        <option value="Menipis">Menipis</option>
+        <option value="Habis">Habis</option>
+        <option value="Belum diatur, tidak dijual">Belum diatur</option>
+      </select>
+      <div id="daftarStok" class="space-y-3"></div>
+    </section>
+    <h2 id="pesanan" class="font-semibold">Pesanan</h2>
     <label class="block text-sm" for="saringStatus">Status pembayaran</label>
     <select id="saringStatus" class="border rounded-lg px-3 py-2 text-base">
       <option value="">Semua</option>
