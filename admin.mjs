@@ -53,7 +53,31 @@ if (!konfigurasi.ok) {
       kosong.textContent = "Tidak ada produk menunggu.";
       antrean.append(kosong);
     }
+    var belum = await supabase.from("admin_notifications").select("id", { count: "exact", head: true }).is("read_at", null);
+    document.getElementById("lencanaPesanan").textContent = "Notifikasi belum dibaca: " + (belum.count || 0);
+    await muatPesanan();
   }
+  async function muatPesanan() {
+    var status = document.getElementById("saringStatus").value;
+    var kueri = supabase.from("orders").select("id,gateway_order_id,payment_status,total,subtotal,payment_blocked_reason,created_at").order("created_at", { ascending: false });
+    if (status) kueri = kueri.eq("payment_status", status);
+    var hasil = await kueri;
+    var root = document.getElementById("daftarPesananAdmin");
+    root.replaceChildren();
+    (hasil.data || []).forEach(function (order) {
+      var article = document.createElement("article");
+      article.className = "bg-white rounded-xl shadow-sm p-4";
+      var title = document.createElement("h3");
+      title.className = "font-medium";
+      title.textContent = order.payment_status;
+      var meta = document.createElement("p");
+      meta.className = "text-sm text-gray-600";
+      meta.textContent = (order.total == null ? "total belum ada karena ongkir" : window.TokoKitaCatalog.formatRupiah(order.total)) + " · " + order.gateway_order_id;
+      article.append(title, meta);
+      root.append(article);
+    });
+  }
+  document.getElementById("saringStatus").addEventListener("change", muatPesanan);
   async function putuskan(id, status) {
     var hasil = await supabase.from("products").update({ status: status }).eq("id", id);
     banner.textContent = hasil.error ? "Keputusan ditolak server." : "Keputusan tersimpan.";

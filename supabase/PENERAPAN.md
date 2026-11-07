@@ -17,3 +17,14 @@ Proyek yang sudah ada: ref `xlsbhvpveivhbqikmxxp`, region `ap-southeast-1`. URL 
 7. Di SQL Editor, jalankan perintah di `supabase/bootstrap-admin.sql` setelah UUID diganti dengan UID tersebut.
 
 Sebelum langkah 4, etalase tetap mode demo dari `catalog.json`.
+
+## Pembayaran sandbox
+
+Fungsi `buat-pembayaran` dan `midtrans-notifikasi` belum di-deploy. Rahasia diisi sebagai environment function, bukan di repositori:
+
+- `MIDTRANS_ENV=sandbox`
+- `MIDTRANS_SERVER_KEY` dari dashboard sandbox Midtrans setelah akun merchant sendiri dibuat
+
+`MIDTRANS_ENV=production` ditolak kode. Tidak ada tarif ongkir di migrasi. Selama tabel `shipping_rates` kosong, pesanan dapat tersimpan tetapi pembayaran tidak dimulai dan tidak ada total kirim. Status lunas hanya berubah lewat notifikasi yang tanda tangannya sah dan dicek ulang ke API sandbox. Kembali dari halaman pembayaran tidak menandai lunas.
+
+Biaya Midtrans ada di https://midtrans.com/pricing dan tidak disetujui oleh repositori ini. Metode yang muncul di Snap tergantung yang diaktifkan akun sandbox, bukan daftar tetap di kode.
