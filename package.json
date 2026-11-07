@@ -1,0 +1,9 @@
+{
+  "name": "toko-kita-id",
+  "private": true,
+  "scripts": {
+    "lint": "node --check catalog.js && node --check script.js && node --check tests/catalog.test.js",
+    "build": "node --check catalog.js && node --check script.js",
+    "test": "node --test"
+  }
+}
