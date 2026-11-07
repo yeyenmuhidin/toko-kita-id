@@ -808,16 +808,42 @@
     renderWishlist();
   }
 
+  function supabaseTerkonfigurasi() {
+    var cfg = window.TOKO_KITA_SUPABASE || {};
+    return Boolean(String(cfg.url || "").trim() && String(cfg.publishableKey || "").trim());
+  }
+
   function loadStorefrontCatalog() {
+    var demoDipaksa = new URLSearchParams(window.location.search).get("demo") === "1";
+    if (supabaseTerkonfigurasi() && !demoDipaksa && !previewDraftRequested) {
+      setCatalogSource("Menghubungkan katalog akun…");
+      window.TokoKitaTerimaKatalog = function (payload) {
+        if (!payload || payload.error) {
+          var pesan = (payload && payload.error) || "Katalog akun tidak dapat dimuat. Mode demo tidak dipakai otomatis.";
+          setCatalogSource(pesan);
+          catalogError.hidden = false;
+          catalogError.textContent = pesan;
+          grid.innerHTML = "";
+          grid.setAttribute("aria-busy", "false");
+          return;
+        }
+        applyCatalog(payload.products || []);
+        setCatalogSource("Etalase menampilkan produk yang sudah disetujui. Pembayaran tetap simulasi, bukan pembayaran sungguhan.");
+      };
+      (window.TokoKitaAntreanKatalog || []).splice(0).forEach(window.TokoKitaTerimaKatalog);
+      return;
+    }
     fetch("catalog.json", { cache: "no-store" }).then(function (response) {
       if (!response.ok) throw new Error("katalog");
       return response.json();
     }).then(function (data) {
       var parsed = catalog.parseCatalogDocument(data);
       if (!parsed.ok) throw new Error(parsed.message);
-      if (!previewDraftRequested) {
+      if (!previewDraftRequested || supabaseTerkonfigurasi()) {
         applyCatalog(parsed.products);
-        setCatalogSource("Katalog tayang dari berkas catalog.json. Draf di halaman Kelola tidak ikut tampil di etalase ini.");
+        setCatalogSource(demoDipaksa
+          ? "Mode demo dipilih lewat tautan. Etalase memakai catalog.json, bukan akun penjual."
+          : "Mode demo: Supabase belum diisi. Etalase membaca catalog.json di situs ini, bukan draf peramban.");
         return;
       }
       var draft = catalog.parseStoredDraft(readStorage(DRAFT_KEY));
@@ -830,7 +856,7 @@
       setCatalogSource("Pratinjau draf lokal di peramban ini. Pengunjung lain tetap melihat katalog tayang.");
     }).catch(function () {
       applyCatalog(catalog.products);
-      setCatalogSource("Berkas catalog.json tidak termuat. Etalase memakai katalog contoh bawaan, bukan draf lokal.");
+        setCatalogSource("Mode demo cadangan: berkas catalog.json tidak termuat. Etalase memakai katalog contoh bawaan, bukan akun penjual.");
     });
   }
 
