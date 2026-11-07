@@ -15,10 +15,6 @@ $$;
 
 grant execute on function auth.role() to anon, authenticated, service_role;
 
-\ir ../supabase/migrations/20261107045100_batas_fungsi_anon.sql
-\ir ../supabase/migrations/20261107025632_pesanan_pembayaran_sandbox.sql
-\ir ../supabase/migrations/20261107045200_batas_pesanan.sql
-
 select id as produk_a from public.products where name = 'Produk A' \gset
 select id as produk_b from public.products where name = 'Produk B' \gset
 select set_config('uji.produk_a', :'produk_a', false);
@@ -67,6 +63,9 @@ insert into public.shipping_rates (label, amount_idr, active, sandbox_only)
 values ('Uji sandbox', 10000, true, true);
 select id as tarif from public.shipping_rates limit 1 \gset
 select set_config('uji.tarif', :'tarif', false);
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+select set_config('request.jwt.claims', '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}', false);
+select public.sesuaikan_stok_admin(current_setting('uji.produk_a')::uuid, 20, 'stok uji pesanan', 0, 'abababab-abab-4aba-8aba-ababababab99', null);
 
 select public.uji((select (public.internal_buat_pesanan(
   '22222222-2222-4222-8222-222222222222',

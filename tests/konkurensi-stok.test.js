@@ -1,7 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { execFile, execFileSync } = require("node:child_process");
-const fs = require("node:fs");
 const path = require("node:path");
 
 const db = "toko_kita_kunci_stok";
@@ -28,8 +27,7 @@ test("kunci stok menahan penyelesaian ganda dan perebutan sisa", async () => {
   execFileSync("sudo", ["-u", "postgres", "psql", "-d", "postgres", "-c", `drop database if exists ${db};`], { stdio: "pipe" });
   execFileSync("sudo", ["-u", "postgres", "psql", "-d", "postgres", "-c", `create database ${db};`], { stdio: "pipe" });
   psqlSync(["-f", path.join(dir, "migrasi.preamble.sql")]);
-  const files = fs.readdirSync(path.join(dir, "../supabase/migrations")).filter((name) => name.endsWith(".sql")).sort();
-  for (const name of files) psqlSync(["-f", path.join(dir, "../supabase/migrations", name)]);
+  psqlSync(["-f", path.join(dir, "../supabase/pemasangan/toko_kita_pemasangan_awal.sql")]);
   psqlSync(["-f", path.join(dir, "konkurensi-stok.sql")]);
 
   const cukup = psqlValue("select id::text from public.products where name = 'Kunci Cukup'");
