@@ -58,6 +58,23 @@ if (!konfigurasi.ok) {
       article.append(title, meta, button);
       root.append(article);
     });
+    var baris = await supabase.from("baris_pesanan_penjual").select("id,product_name,payment_status,fulfillment_status,buyer_name").order("created_at", { ascending: false });
+    var tujuan = document.getElementById("barisPesanan");
+    if (tujuan) {
+      tujuan.replaceChildren();
+      (baris.data || []).forEach(function (barisItem) {
+        var kartu = document.createElement("article");
+        kartu.className = "border rounded-xl p-3";
+        var judul = document.createElement("h3");
+        judul.className = "font-medium";
+        judul.textContent = barisItem.product_name;
+        var info = document.createElement("p");
+        info.className = "text-sm text-gray-600";
+        info.textContent = barisItem.payment_status + " · " + barisItem.fulfillment_status + (barisItem.buyer_name ? " · " + barisItem.buyer_name : "");
+        kartu.append(judul, info);
+        tujuan.append(kartu);
+      });
+    }
   }
 
   document.getElementById("tokoForm").addEventListener("submit", async function (event) {
