@@ -17,6 +17,9 @@ grant execute on function auth.role() to anon, authenticated, service_role;
 
 \ir ../supabase/migrations/20261107025632_pesanan_pembayaran_sandbox.sql
 \ir ../supabase/migrations/20261107030520_admin_produk_stok.sql
+\ir ../supabase/migrations/20261107045100_batas_fungsi_anon.sql
+\ir ../supabase/migrations/20261107045200_batas_pesanan.sql
+\ir ../supabase/migrations/20261107045300_batas_stok.sql
 
 select id as produk_a from public.products where name = 'Produk A' \gset
 select set_config('uji.produk_a', :'produk_a', false);
@@ -192,3 +195,10 @@ exception
     if sqlerrm like '%UJI GAGAL%' then raise; end if;
 end $$;
 reset role;
+select public.uji((
+  select count(*) = 0
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where p.prosecdef and n.nspname in ('public', 'graphql_public')
+), 'setelah stok tidak ada security definer yang diekspos');
+\ir lintas-penjual.sql

@@ -22,6 +22,10 @@ if (!konfigurasi.ok || demo || pratinjau) {
       return;
     }
     var products = (result.data || []).map(barisKeProduk);
+    if (!products.length) {
+      kirim({ products: [], kosong: true });
+      return;
+    }
     await Promise.all(products.map(async function (product) {
       if (!product.imagePath) return;
       var signed = await supabase.storage.from("produk").createSignedUrl(product.imagePath, 3600);

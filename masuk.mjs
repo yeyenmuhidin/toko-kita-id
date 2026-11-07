@@ -10,7 +10,7 @@ if (!konfigurasi.ok) {
   banner.textContent = "Akun penjual belum terhubung. " + konfigurasi.reason + " Pendaftaran tidak dijalankan dan tidak ada akun yang dibuat.";
   forms.forEach(function (form) { form.querySelector("button").disabled = true; });
 } else {
-  banner.textContent = "Masuk memakai Supabase Auth. Halaman ini tidak menyimpan kata sandi di repositori. Checkout toko tetap simulasi.";
+  banner.textContent = "URL proyek sudah diisi, tetapi konfirmasi email dan SMTP belum diverifikasi. Pendaftaran dapat gagal sampai pemilik mengatur SMTP. Halaman ini belum berarti masuk siap dipakai. Checkout contoh tidak menagih.";
   var supabase = createClient(konfigurasi.url, konfigurasi.publishableKey);
   supabase.auth.getSession().then(function (result) {
     if (result.data.session) {
