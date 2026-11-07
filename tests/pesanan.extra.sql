@@ -15,7 +15,9 @@ $$;
 
 grant execute on function auth.role() to anon, authenticated, service_role;
 
+\ir ../supabase/migrations/20261107045100_batas_fungsi_anon.sql
 \ir ../supabase/migrations/20261107025632_pesanan_pembayaran_sandbox.sql
+\ir ../supabase/migrations/20261107045200_batas_pesanan.sql
 
 select id as produk_a from public.products where name = 'Produk A' \gset
 select id as produk_b from public.products where name = 'Produk B' \gset
@@ -95,10 +97,10 @@ select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111
 select set_config('request.jwt.claims', '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}', false);
 select public.uji((select count(*) = 2 from public.baris_pesanan_penjual), 'penjual hanya melihat barisnya');
 select public.uji((select bool_or(buyer_name is not null) from public.baris_pesanan_penjual), 'nama pembeli terlihat setelah lunas');
-update public.order_items i
+update public.order_items
 set fulfillment_status = 'dikemas'
-from public.orders o
-where i.order_id = o.id and o.payment_status = 'dibayar' and i.seller_id = auth.uid();
+where seller_id = auth.uid()
+  and id in (select id from public.baris_pesanan_penjual where payment_status = 'dibayar');
 select public.uji((select count(*) = 1 from public.order_items where seller_id = '11111111-1111-4111-8111-111111111111' and fulfillment_status = 'dikemas'), 'penjual memperbarui pemenuhan');
 
 do $$
@@ -127,3 +129,31 @@ end $$;
 reset role;
 
 select public.uji((select count(*) >= 1 from public.admin_notifications where read_at is null), 'admin mendapat catatan status');
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+select set_config('request.jwt.claims', '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}', false);
+do $$
+begin
+  perform public.internal_buat_pesanan(null, null, '[]'::jsonb, null, null);
+  raise exception 'UJI GAGAL: klien memanggil pesanan';
+exception
+  when insufficient_privilege then null;
+  when others then
+    if sqlerrm not like '%tidak tersedia%' and sqlerrm not like '%UJI GAGAL%' then raise; end if;
+end $$;
+reset role;
+set role service_role;
+do $$
+begin
+  perform public.internal_buat_pesanan(null, null, '[]'::jsonb, null, null);
+  raise exception 'UJI GAGAL: service role ditolak sebelum validasi';
+exception
+  when insufficient_privilege then
+    raise exception 'UJI GAGAL: service role tidak dapat memanggil RPC pesanan';
+  when others then
+    if sqlerrm not like '%tidak lengkap%' and sqlerrm not like '%UJI GAGAL%' then raise; end if;
+end $$;
+reset role;
+
+\ir lintas-penjual.sql
