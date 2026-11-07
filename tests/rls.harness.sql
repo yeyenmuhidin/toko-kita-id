@@ -3,11 +3,15 @@
 drop schema if exists private cascade;
 drop schema if exists storage cascade;
 drop schema if exists auth cascade;
-drop role if exists anon;
-drop role if exists authenticated;
 
-create role anon nologin;
-create role authenticated nologin;
+do $$ begin
+  create role anon nologin;
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create role authenticated nologin;
+exception when duplicate_object then null;
+end $$;
 grant anon to postgres;
 grant authenticated to postgres;
 
