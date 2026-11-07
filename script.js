@@ -383,11 +383,13 @@
         '<div class="flex-1 min-w-0">' +
           '<h3 class="font-medium">' + catalog.escapeHtml(item.name) + "</h3>" +
           '<p class="text-indigo-700 font-semibold text-sm">' + catalog.formatRupiah(item.price) + "</p>" +
-          '<div class="flex items-center gap-2 mt-2">' +
-            '<button type="button" data-action="qty-dec" data-id="' + item.id + '" class="w-11 h-11 rounded-full bg-gray-100 hover:bg-gray-200" aria-label="Kurangi jumlah ' + catalog.escapeHtml(item.name) + '">−</button>' +
-            '<span class="font-medium w-8 text-center" aria-live="polite">' + item.quantity + "</span>" +
-            '<button type="button" data-action="qty-inc" data-id="' + item.id + '" class="w-11 h-11 rounded-full bg-gray-100 hover:bg-gray-200" aria-label="Tambah jumlah ' + catalog.escapeHtml(item.name) + '"' + plusDisabled + ">+</button>" +
-            '<button type="button" data-action="remove-cart" data-id="' + item.id + '" class="ml-auto min-h-11 px-3 text-red-600 hover:text-red-800 font-medium" aria-label="Hapus ' + catalog.escapeHtml(item.name) + ' dari keranjang">Hapus</button>' +
+          '<div class="flex items-center gap-3 mt-2">' +
+            '<div class="inline-flex items-center overflow-hidden rounded-full border border-gray-200">' +
+              '<button type="button" data-action="qty-dec" data-id="' + item.id + '" class="w-12 h-12 text-lg bg-gray-50 hover:bg-gray-200" aria-label="Kurangi jumlah ' + catalog.escapeHtml(item.name) + '">−</button>' +
+              '<span class="font-medium w-10 text-center" aria-live="polite">' + item.quantity + "</span>" +
+              '<button type="button" data-action="qty-inc" data-id="' + item.id + '" class="w-12 h-12 text-lg bg-gray-50 hover:bg-gray-200" aria-label="Tambah jumlah ' + catalog.escapeHtml(item.name) + '"' + plusDisabled + ">+</button>" +
+            "</div>" +
+            '<button type="button" data-action="remove-cart" data-id="' + item.id + '" class="ml-auto min-h-12 px-3 text-red-600 hover:text-red-800 font-medium" aria-label="Hapus ' + catalog.escapeHtml(item.name) + ' dari keranjang">Hapus</button>' +
           "</div>" +
         "</div>" +
       "</div>";
@@ -722,9 +724,22 @@
     });
     checkoutForm.addEventListener("submit", onCheckoutSubmit);
     document.getElementById("closeSuccess").addEventListener("click", function () { closeModal("success"); });
+    var skipQtyClick = false;
+    document.addEventListener("pointerdown", function (event) {
+      var actionEl = event.target.closest("[data-action]");
+      if (!actionEl || actionEl.disabled) return;
+      if (actionEl.dataset.action !== "qty-inc" && actionEl.dataset.action !== "qty-dec") return;
+      event.preventDefault();
+      skipQtyClick = true;
+      handleAction(actionEl);
+    });
+    document.addEventListener("pointerup", function () {
+      window.setTimeout(function () { skipQtyClick = false; }, 0);
+    });
     document.addEventListener("click", function (event) {
       var actionEl = event.target.closest("[data-action]");
       if (!actionEl) return;
+      if (skipQtyClick && (actionEl.dataset.action === "qty-inc" || actionEl.dataset.action === "qty-dec")) return;
       handleAction(actionEl);
     });
     document.addEventListener("keydown", function (event) {
