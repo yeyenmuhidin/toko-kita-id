@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uji lokal manajemen produk - Toko Kita ID</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>[hidden]{display:none !important} :focus-visible{outline:2px solid #4338ca;outline-offset:2px}</style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <header class="bg-white shadow-sm">
+    <div class="max-w-3xl mx-auto px-4 py-3">
+      <a href="./" class="font-bold text-indigo-700">Toko Kita ID</a>
+    </div>
+  </header>
+  <main class="max-w-3xl mx-auto px-4 py-6 space-y-4">
+    <p class="text-sm bg-amber-50 border border-amber-200 text-amber-950 rounded-lg p-3">LAYAR UJI LOKAL. Bukan sesi admin sungguhan dan tidak menyimpan ke Supabase. Data di bawah ini hanya contoh tampilan.</p>
+    <nav class="flex gap-2" aria-label="Bagian admin uji">
+      <a href="#produk-uji" class="min-h-11 inline-flex items-center px-3 rounded-lg bg-indigo-600 text-white">Produk</a>
+      <a href="#stok-uji" class="min-h-11 inline-flex items-center px-3 rounded-lg border">Stok</a>
+    </nav>
+    <h1 id="produk-uji" class="text-xl font-bold">Manajemen produk</h1>
+    <label class="block text-sm font-medium" for="cariUji">Cari</label>
+    <input id="cariUji" class="w-full border rounded-lg px-3 py-2.5 text-base" placeholder="Nama atau kategori" />
+    <label class="block text-sm font-medium" for="statusUji">Status</label>
+    <select id="statusUji" class="w-full border rounded-lg px-3 py-2.5 text-base">
+      <option value="">Semua</option>
+      <option value="menunggu">Menunggu</option>
+      <option value="disetujui">Disetujui</option>
+      <option value="diarsipkan">Diarsipkan</option>
+    </select>
+    <form id="formUji" class="bg-white rounded-xl shadow-sm p-4 grid gap-3">
+      <h2 class="font-semibold">Produk toko admin, data uji</h2>
+      <label class="text-sm" for="namaUji">Nama</label>
+      <input id="namaUji" class="border rounded-lg px-3 py-2.5" value="Keripik data uji" />
+      <label class="text-sm" for="hargaUji">Harga rupiah</label>
+      <input id="hargaUji" class="border rounded-lg px-3 py-2.5" value="15000" />
+      <label class="text-sm" for="stokUji">Stok di editor, tidak dikirim</label>
+      <input id="stokUji" class="border rounded-lg px-3 py-2.5" value="8" />
+      <p class="text-sm text-gray-600">Angka editor tidak mengubah fisik, cadangan, atau tersedia. Bagian Stok di bawah memakai model yang sama dan tetap lokal.</p>
+      <button class="min-h-11 bg-indigo-600 text-white rounded-lg" type="submit">Simpan di layar uji</button>
+    </form>
+    <div id="daftarUji" class="space-y-3"></div>
+    <h2 id="stok-uji" class="text-xl font-bold">Manajemen stok</h2>
+    <div id="daftarStok" class="space-y-3"></div>
+    <p id="hasilUji" class="text-sm" aria-live="polite"></p>
+  </main>
+  <script type="module" src="uji-admin.mjs"></script>
+</body>
+</html>

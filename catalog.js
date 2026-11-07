@@ -564,6 +564,12 @@
     return (list || []).filter(function (product) { return product.id !== productId; });
   }
 
+  function keputusanKatalogAkun(payload) {
+    if (!payload || payload.error) return "galat";
+    if (!payload.products || !payload.products.length) return "demo-kosong";
+    return "akun";
+  }
+
   return {
     MAX_QTY: MAX_QTY,
     PRICE_RANGE_ERROR: PRICE_RANGE_ERROR,
@@ -612,6 +618,7 @@
     serializeDraft: serializeDraft,
     nextProductId: nextProductId,
     upsertProduct: upsertProduct,
-    deleteProduct: deleteProduct
+    deleteProduct: deleteProduct,
+    keputusanKatalogAkun: keputusanKatalogAkun
   };
 });

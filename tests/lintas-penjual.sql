@@ -6,7 +6,7 @@ on conflict (id) do nothing;
 
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
 select set_config('request.jwt.claims', '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}', false);
-select set_config('app.kelola_admin', '1', true);
+select set_config('app.kelola_admin', '1', false);
 set role authenticated;
 update public.products set status = 'disetujui' where name = 'Produk B';
 reset role;
@@ -18,6 +18,13 @@ where not exists (select 1 from public.shipping_rates where label = 'Uji campura
 select set_config('uji.tarif_campuran', (select id::text from public.shipping_rates where label = 'Uji campuran' limit 1), false);
 select set_config('uji.produk_a', (select id::text from public.products where name = 'Produk A'), false);
 select set_config('uji.produk_b', (select id::text from public.products where name = 'Produk B'), false);
+do $$
+begin
+  if to_regprocedure('public.sesuaikan_stok_admin(uuid, integer, text, integer, uuid, integer)') is not null then
+    perform public.sesuaikan_stok_admin(current_setting('uji.produk_a')::uuid, 5, 'stok campuran', (select stock_version from public.products where name = 'Produk A'), 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb10', null);
+    perform public.sesuaikan_stok_admin(current_setting('uji.produk_b')::uuid, 5, 'stok campuran', (select stock_version from public.products where name = 'Produk B'), 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb11', null);
+  end if;
+end $$;
 set role service_role;
 select public.internal_buat_pesanan(
   '44444444-4444-4444-8444-444444444444',

@@ -207,6 +207,13 @@ test("checkout demo memvalidasi kontak dan merangkum barang", () => {
   assert.equal(summary.items[0].lineTotal, 378000);
 });
 
+test("katalog akun kosong kembali ke contoh, galat tidak", () => {
+  assert.equal(catalog.keputusanKatalogAkun({ products: [] }), "demo-kosong");
+  assert.equal(catalog.keputusanKatalogAkun({ products: [], kosong: true }), "demo-kosong");
+  assert.equal(catalog.keputusanKatalogAkun({ error: "gagal" }), "galat");
+  assert.equal(catalog.keputusanKatalogAkun({ products: [{ id: "x" }] }), "akun");
+});
+
 test("teks dan gambar diamankan", () => {
   assert.equal(catalog.escapeHtml(`<b class="x">'`), "&lt;b class=&quot;x&quot;&gt;&#39;");
   assert.equal(catalog.safeImageUrl(products[0].image), products[0].image);

@@ -818,13 +818,29 @@
     if (supabaseTerkonfigurasi() && !demoDipaksa && !previewDraftRequested) {
       setCatalogSource("Menghubungkan katalog akun…");
       window.TokoKitaTerimaKatalog = function (payload) {
-        if (!payload || payload.error) {
+        var keputusan = catalog.keputusanKatalogAkun(payload);
+        if (keputusan === "galat") {
           var pesan = (payload && payload.error) || "Katalog akun tidak dapat dimuat. Mode demo tidak dipakai otomatis.";
           setCatalogSource(pesan);
           catalogError.hidden = false;
           catalogError.textContent = pesan;
           grid.innerHTML = "";
           grid.setAttribute("aria-busy", "false");
+          return;
+        }
+        if (keputusan === "demo-kosong") {
+          fetch("catalog.json", { cache: "no-store" }).then(function (response) {
+            if (!response.ok) throw new Error("katalog");
+            return response.json();
+          }).then(function (data) {
+            var parsed = catalog.parseCatalogDocument(data);
+            if (!parsed.ok) throw new Error(parsed.message);
+            applyCatalog(parsed.products);
+            setCatalogSource("Basis data akun masih kosong. Delapan produk ini contoh catalog.json, bukan stok sungguhan, dan tidak dapat dibayar.");
+          }).catch(function () {
+            applyCatalog(catalog.products);
+            setCatalogSource("Basis data akun masih kosong. Contoh bawaan ditampilkan, bukan stok sungguhan, dan tidak dapat dibayar.");
+          });
           return;
         }
         applyCatalog(payload.products || []);
