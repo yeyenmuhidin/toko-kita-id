@@ -8,8 +8,6 @@ grant supabase_auth_admin to postgres;
 grant usage on schema auth to supabase_auth_admin;
 grant insert on auth.users to supabase_auth_admin;
 
-\ir ../supabase/migrations/20261107045100_batas_fungsi_anon.sql
-
 create or replace function public.uji(kondisi boolean, pesan text)
 returns void
 language plpgsql

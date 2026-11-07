@@ -12,8 +12,18 @@ do $$ begin
   create role authenticated nologin;
 exception when duplicate_object then null;
 end $$;
+do $$ begin
+  create role service_role nologin;
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create role supabase_auth_admin nologin;
+exception when duplicate_object then null;
+end $$;
 grant anon to postgres;
 grant authenticated to postgres;
+grant service_role to postgres;
+grant supabase_auth_admin to postgres;
 
 create schema auth;
 create table auth.users (
@@ -77,8 +87,10 @@ $$;
 grant usage on schema storage to anon, authenticated;
 grant execute on function storage.foldername(text) to anon, authenticated;
 grant execute on function storage.allow_any_operation(text[]) to anon, authenticated;
+grant usage on schema auth to supabase_auth_admin;
+grant insert on auth.users to supabase_auth_admin;
 
-\ir ../supabase/migrations/20261107024105_marketplace_penjual.sql
+\ir ../supabase/pemasangan/toko_kita_pemasangan_awal.sql
 
 insert into auth.users (id, email, raw_user_meta_data) values
   ('11111111-1111-4111-8111-111111111111', 'penjual-a@example.test', '{"display_name":"Penjual A","role":"admin"}'),
@@ -197,6 +209,7 @@ select public.uji((select role = 'admin' from public.profiles where id = '333333
 
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
 select set_config('request.jwt.claims', '{"sub":"33333333-3333-4333-8333-333333333333"}', false);
+select set_config('app.kelola_admin', '1', false);
 set role authenticated;
 update public.products set status = 'disetujui' where name = 'Produk A';
 reset role;
@@ -247,6 +260,7 @@ reset role;
 
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
 select set_config('request.jwt.claims', '{"sub":"33333333-3333-4333-8333-333333333333"}', false);
+select set_config('app.kelola_admin', '1', false);
 set role authenticated;
 update public.products set status = 'disetujui' where name = 'Produk A';
 reset role;

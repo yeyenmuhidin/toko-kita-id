@@ -10,18 +10,20 @@ Migrasi ini belum dijalankan ke proyek jarak jauh. Auth, SMTP, Edge Function, da
 
 Selama tabel produk akun kosong, etalase menampilkan delapan contoh `catalog.json` dengan keterangan bahwa itu bukan stok sungguhan dan tidak dapat dibayar. Jika pemuatan akun gagal, contoh itu tidak dipakai sebagai pengganti diam-diam.
 
-## Yang diterapkan pemilik setelah meninjau SQL
+## Jalur pemasangan satu berkas
 
-Jalankan berkas migrasi sekali, berurutan menurut nama:
+Jangan menggabungkan PR #3, #4, atau #5 ke `main` sendiri, dan jangan menerapkan enam berkas migrasi lama. Di riwayat git berkas itu masih ada, tetapi folder `supabase/migrations` pada cabang pemasangan sengaja kosong supaya `supabase db push` tidak memasang definisi sementara.
 
-1. `supabase/migrations/20261107024105_marketplace_penjual.sql`
-2. `supabase/migrations/20261107025632_pesanan_pembayaran_sandbox.sql`
-3. `supabase/migrations/20261107030520_admin_produk_stok.sql`
-4. `supabase/migrations/20261107045100_batas_fungsi_anon.sql`
-5. `supabase/migrations/20261107045200_batas_pesanan.sql`
-6. `supabase/migrations/20261107045300_batas_stok.sql`
+Satu-satunya SQL pemasangan adalah `supabase/pemasangan/toko_kita_pemasangan_awal.sql`. Berkas itu membuat keadaan akhir langsung: fungsi istimewa ada di `private`, RPC `public` adalah security invoker, dan tidak ada `SECURITY DEFINER` di `public` bahkan di tengah berkas.
 
-Jangan berhenti di tengah. Tiga berkas pertama masih membuat fungsi sementara; tiga berkas `batas_` yang menutup rangkaian.
+`apply_migration` hanya menerima `project_id`, `name`, dan `query`, lalu memberi versi sendiri. Jangan menulis `schema_migrations` manual dan jangan `db push` sebelum nama berkas sama dengan versi itu.
+
+1. Tinjau isi `supabase/pemasangan/toko_kita_pemasangan_awal.sql`.
+2. Panggil `apply_migration` sekali, `name` = `toko_kita_pemasangan_awal`, `query` = seluruh isi berkas.
+3. Simpan versi yang dikembalikan alat.
+4. Commit biasa berikutnya mengganti nama berkas menjadi `supabase/migrations/<versi>_toko_kita_pemasangan_awal.sql`.
+
+Sampai langkah 2, migrasi remote belum dijalankan. Pengaturan Exposed schemas di dashboard belum diverifikasi dari konektor ini (`pgrst.db_schemas` kosong di Postgres lokal). Sebelum menganggap `private` tersembunyi, pastikan di dashboard Exposed schemas hanya `public` dan `graphql_public`.
 
 Di Authentication, yang belum terverifikasi dan harus diatur pemilik:
 
@@ -48,7 +50,7 @@ Biaya Midtrans ada di https://midtrans.com/pricing dan tidak disetujui oleh repo
 
 ## Produk dan stok admin
 
-Setelah dua migrasi di atas, jalankan `supabase/migrations/20261107030520_admin_produk_stok.sql` sekali. Migrasi ini tidak mengisi stok produk yang sudah ada: `stock` null berarti belum diatur dan tidak dapat dipesan. Produk `contoh` tetap tidak dijual.
+Pemasangan tidak mengisi stok. `stock` null berarti belum diatur dan tidak dapat dipesan. Produk `contoh` tetap tidak dijual. Cadangan di `posisi_stok` dihitung lewat `private.angka_stok`, hanya untuk pemilik produk atau admin, tanpa membuka total pesanan, baris penjual lain, atau data pembeli.
 
 Model yang dipakai halaman Produk dan halaman Stok sama:
 

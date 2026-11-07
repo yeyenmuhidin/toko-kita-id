@@ -15,12 +15,6 @@ $$;
 
 grant execute on function auth.role() to anon, authenticated, service_role;
 
-\ir ../supabase/migrations/20261107025632_pesanan_pembayaran_sandbox.sql
-\ir ../supabase/migrations/20261107030520_admin_produk_stok.sql
-\ir ../supabase/migrations/20261107045100_batas_fungsi_anon.sql
-\ir ../supabase/migrations/20261107045200_batas_pesanan.sql
-\ir ../supabase/migrations/20261107045300_batas_stok.sql
-
 select id as produk_a from public.products where name = 'Produk A' \gset
 select set_config('uji.produk_a', :'produk_a', false);
 
