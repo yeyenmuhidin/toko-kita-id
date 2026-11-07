@@ -379,11 +379,178 @@
     if (typeof url !== "string" || url.trim() === "") return "";
     try {
       var parsed = new URL(url);
-      if (parsed.protocol !== "https:") return "";
+      if (parsed.protocol !== "https:" || parsed.username || parsed.password) return "";
       return parsed.href;
     } catch (error) {
       return "";
     }
+  }
+
+  var CATALOG_SCHEMA = 1;
+  var MAX_PRODUCTS = 200;
+  var MAX_PRICE = 999999999;
+  var MAX_DATA_URL_LENGTH = 500000;
+  var DRAFT_EXPORT_NOTE = "Berkas pengganti catalog.json untuk Toko Kita ID. Mengunduh berkas ini tidak menayangkan perubahan. Pengunjung melihat produk baru hanya setelah berkas ini menggantikan catalog.json di repositori dan GitHub Pages selesai memperbarui.";
+
+  function storefrontProducts(list) {
+    return (list || []).filter(function (product) { return product && product.visible !== false; });
+  }
+
+  function cleanPlainText(value) {
+    return String(value == null ? "" : value).replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function isSafeImageDataUrl(url) {
+    if (typeof url !== "string" || url.length > MAX_DATA_URL_LENGTH) return false;
+    var match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(url);
+    if (!match || match[2].length < 32 || match[2].length % 4 !== 0) return false;
+    return true;
+  }
+
+  function safeProductImage(url) {
+    var httpsUrl = safeImageUrl(url);
+    if (httpsUrl) return httpsUrl;
+    return isSafeImageDataUrl(url) ? url : "";
+  }
+
+  function parseCatalogPrice(value) {
+    var amount = value;
+    if (typeof amount === "string" && /^[0-9]+$/.test(amount)) amount = Number(amount);
+    if (typeof amount !== "number" || !Number.isInteger(amount)) return null;
+    if (amount < 0 || amount > MAX_PRICE) return null;
+    return amount;
+  }
+
+  function validateProduct(input, options) {
+    var source = input || {};
+    var settings = options || {};
+    var errors = {};
+    var id = Number(source.id);
+    if (!Number.isInteger(id) || id < 1) errors.id = "Nomor produk tidak valid.";
+    var taken = settings.ids || [];
+    if (!errors.id && settings.allowSameId !== id && taken.indexOf(id) !== -1) errors.id = "Nomor produk sudah dipakai.";
+    var name = cleanPlainText(source.name);
+    if (name.length < 2 || name.length > 80 || /[<>]/.test(name)) errors.name = "Nama 2–80 karakter, tanpa tanda < atau >.";
+    var price = parseCatalogPrice(source.price);
+    if (price == null) errors.price = "Harga harus bilangan bulat rupiah, dari 0 sampai 999.999.999.";
+    var description = cleanPlainText(source.description);
+    if (description.length < 10 || description.length > 500 || /[<>]/.test(description)) {
+      errors.description = "Deskripsi 10–500 karakter, tanpa tanda < atau >.";
+    }
+    var category = cleanPlainText(source.category);
+    if (!/^[\p{L}\p{N}][\p{L}\p{N} .,&()/-]{1,39}$/u.test(category) || /[<>]/.test(category)) {
+      errors.category = "Kategori 2–40 huruf atau angka, tanpa tanda < atau >.";
+    }
+    var image = safeProductImage(typeof source.image === "string" ? source.image.trim() : "");
+    if (!image) errors.image = "Gambar harus tautan https atau berkas JPEG, PNG, atau WebP yang dipilih dari perangkat.";
+    var product = {
+      id: id,
+      name: name,
+      price: price,
+      image: image,
+      category: category,
+      description: description,
+      visible: source.visible !== false
+    };
+    if (source.contoh === true) product.contoh = true;
+    return { ok: Object.keys(errors).length === 0, errors: errors, value: product };
+  }
+
+  function parseCatalogDocument(raw) {
+    var data = raw;
+    if (typeof raw === "string") {
+      if (raw.length > 2000000) return { ok: false, message: "Berkas terlalu besar untuk dibaca di peramban ini.", products: [] };
+      try {
+        data = JSON.parse(raw);
+      } catch (error) {
+        return { ok: false, message: "Berkas bukan JSON yang utuh.", products: [] };
+      }
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return { ok: false, message: "Berkas katalog harus berupa objek dengan daftar produk.", products: [] };
+    }
+    if (data.schema !== CATALOG_SCHEMA) {
+      return { ok: false, message: "Skema katalog tidak dikenali. Unduh berkas dari halaman Kelola.", products: [] };
+    }
+    if (!Array.isArray(data.products)) {
+      return { ok: false, message: "Daftar produk tidak ditemukan.", products: [] };
+    }
+    if (data.products.length > MAX_PRODUCTS) {
+      return { ok: false, message: "Jumlah produk melebihi batas 200.", products: [] };
+    }
+    var productsOut = [];
+    var ids = [];
+    for (var index = 0; index < data.products.length; index += 1) {
+      var checked = validateProduct(data.products[index], { ids: ids });
+      if (!checked.ok) {
+        var first = Object.keys(checked.errors)[0];
+        return {
+          ok: false,
+          message: "Produk ke-" + (index + 1) + ": " + checked.errors[first],
+          products: []
+        };
+      }
+      ids.push(checked.value.id);
+      productsOut.push(checked.value);
+    }
+    return { ok: true, message: "", products: productsOut };
+  }
+
+  function serializeCatalog(list) {
+    var parsed = parseCatalogDocument({ schema: CATALOG_SCHEMA, products: list || [] });
+    if (!parsed.ok) return "";
+    return JSON.stringify({
+      schema: CATALOG_SCHEMA,
+      catatan: DRAFT_EXPORT_NOTE,
+      products: parsed.products
+    }, null, 2) + "\n";
+  }
+
+  function parseStoredDraft(raw) {
+    if (raw == null || raw === "") return { ok: false, message: "Belum ada draf.", products: [], savedAt: "" };
+    var data;
+    try {
+      data = JSON.parse(raw);
+    } catch (error) {
+      return { ok: false, message: "Draf lokal rusak dan tidak dipakai.", products: [], savedAt: "" };
+    }
+    if (!data || typeof data !== "object" || !Array.isArray(data.products)) {
+      return { ok: false, message: "Draf lokal tidak dikenali.", products: [], savedAt: "" };
+    }
+    var parsed = parseCatalogDocument({ schema: CATALOG_SCHEMA, products: data.products });
+    if (!parsed.ok) return { ok: false, message: parsed.message, products: [], savedAt: "" };
+    return {
+      ok: true,
+      message: "",
+      savedAt: typeof data.savedAt === "string" ? data.savedAt : "",
+      products: parsed.products
+    };
+  }
+
+  function serializeDraft(list, savedAt) {
+    var parsed = parseCatalogDocument({ schema: CATALOG_SCHEMA, products: list || [] });
+    if (!parsed.ok) return "";
+    return JSON.stringify({ savedAt: savedAt || "", products: parsed.products });
+  }
+
+  function nextProductId(list) {
+    return (list || []).reduce(function (max, product) {
+      return product.id > max ? product.id : max;
+    }, 0) + 1;
+  }
+
+  function upsertProduct(list, product) {
+    var found = false;
+    var next = (list || []).map(function (item) {
+      if (item.id !== product.id) return item;
+      found = true;
+      return product;
+    });
+    return found ? next : next.concat([product]);
+  }
+
+  function deleteProduct(list, productId) {
+    return (list || []).filter(function (product) { return product.id !== productId; });
   }
 
   return {
@@ -419,6 +586,20 @@
     validateCheckout: validateCheckout,
     checkoutSummary: checkoutSummary,
     escapeHtml: escapeHtml,
-    safeImageUrl: safeImageUrl
+    safeImageUrl: safeImageUrl,
+    CATALOG_SCHEMA: CATALOG_SCHEMA,
+    DRAFT_EXPORT_NOTE: DRAFT_EXPORT_NOTE,
+    MAX_DATA_URL_LENGTH: MAX_DATA_URL_LENGTH,
+    storefrontProducts: storefrontProducts,
+    isSafeImageDataUrl: isSafeImageDataUrl,
+    safeProductImage: safeProductImage,
+    validateProduct: validateProduct,
+    parseCatalogDocument: parseCatalogDocument,
+    serializeCatalog: serializeCatalog,
+    parseStoredDraft: parseStoredDraft,
+    serializeDraft: serializeDraft,
+    nextProductId: nextProductId,
+    upsertProduct: upsertProduct,
+    deleteProduct: deleteProduct
   };
 });
