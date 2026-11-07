@@ -15,6 +15,12 @@
   }
 
   var products = catalog.products;
+  var DRAFT_KEY = "tokoKitaCatalogDraft";
+  var previewDraftRequested = new URLSearchParams(window.location.search).get("pratinjau") === "draf";
+
+  function shopProducts() {
+    return catalog.storefrontProducts(products);
+  }
   var CART_KEY = "tokoKitaCart";
   var WISHLIST_KEY = "tokoKitaWishlist";
   var ACTIVE_CATEGORY = "shrink-0 rounded-full px-4 py-2 min-h-11 text-sm font-medium bg-indigo-600 text-white";
@@ -160,6 +166,12 @@
 
   function syncUrl() {
     var next = catalog.toCatalogSearch(state.filters);
+    if (previewDraftRequested) {
+      var params = new URLSearchParams(next.charAt(0) === "?" ? next.slice(1) : next);
+      params.set("pratinjau", "draf");
+      var query = params.toString();
+      next = query ? "?" + query : "";
+    }
     var current = window.location.search || "";
     if (current === next) return;
     try {
@@ -269,7 +281,7 @@
   }
 
   function renderCategories() {
-    var categories = catalog.categoriesFrom(products);
+    var categories = catalog.categoriesFrom(shopProducts());
     var current = categoryFilters.querySelectorAll("[data-category]");
     var same = current.length === categories.length && categories.every(function (category, index) {
       return current[index].dataset.category === category;
@@ -314,8 +326,8 @@
       resultCount.textContent = "Filter harga belum berlaku";
       return;
     }
-    var visible = catalog.filterAndSortProducts(products, state.filters);
-    resultCount.textContent = catalog.resultSummary(visible.length, products.length);
+    var visible = catalog.filterAndSortProducts(shopProducts(), state.filters);
+    resultCount.textContent = catalog.resultSummary(visible.length, shopProducts().length);
     if (visible.length === 0) {
       grid.innerHTML = '<div class="col-span-full text-center bg-white rounded-xl border border-dashed border-gray-300 px-6 py-12" role="status"><p class="text-lg font-medium mb-2">Tidak ada produk yang cocok</p><p class="text-gray-600 mb-4">' + catalog.escapeHtml(catalog.EMPTY_RESULT_MESSAGE) + '</p><button type="button" data-action="reset-filters" class="min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium">Atur ulang filter</button></div>';
       grid.setAttribute("aria-busy", "false");
@@ -331,6 +343,7 @@
           '<div class="relative h-52 bg-gray-100">' +
             imageMarkup(product.image, "", "w-full h-full object-cover") +
             '<span class="absolute top-3 left-3 bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">' + catalog.escapeHtml(product.category) + "</span>" +
+            (product.contoh ? '<span class="absolute top-3 right-3 bg-amber-100 text-amber-950 text-xs px-2 py-1 rounded-full">Contoh</span>' : "") +
           "</div>" +
           '<div class="p-4">' +
             '<h3 class="font-semibold text-lg mb-1">' + catalog.escapeHtml(product.name) + "</h3>" +
@@ -414,7 +427,7 @@
         imageMarkup(product.image, product.name, "w-20 h-20 object-cover rounded-lg shrink-0") +
         '<div class="flex-1 min-w-0">' +
           '<h3 class="font-medium">' + catalog.escapeHtml(product.name) + "</h3>" +
-          '<p class="text-sm text-gray-600">' + catalog.escapeHtml(product.category) + "</p>" +
+          '<p class="text-sm text-gray-600">' + catalog.escapeHtml(product.category) + (product.visible === false ? " · Disembunyikan dari etalase" : "") + "</p>" +
           '<p class="text-indigo-700 font-semibold text-sm">' + catalog.formatRupiah(product.price) + "</p>" +
           '<div class="flex flex-wrap gap-2 mt-2">' +
             '<button type="button" data-action="open-detail" data-id="' + product.id + '" class="min-h-11 px-3 rounded-lg border border-gray-300 text-sm font-medium">Detail</button>' +
@@ -441,7 +454,7 @@
     var keepQty = currentDetail && Number(currentDetail.getAttribute("data-detail-id")) === product.id
       ? catalog.clampQuantity((document.getElementById("detailQty") || {}).value)
       : 1;
-    var related = catalog.relatedProducts(products, product);
+    var related = catalog.relatedProducts(shopProducts(), product);
     var relatedHtml = related.length === 0 ? "" : '<section class="mt-8"><h3 class="font-semibold mb-3">Produk lain di kategori ' + catalog.escapeHtml(product.category) + '</h3><ul class="grid gap-2">' + related.map(function (item) {
       return '<li><button type="button" data-action="open-detail" data-id="' + item.id + '" class="w-full text-left min-h-11 rounded-lg border border-gray-200 px-3 py-2 hover:border-indigo-400"><span class="font-medium">' + catalog.escapeHtml(item.name) + '</span><span class="block text-sm text-indigo-700">' + catalog.formatRupiah(item.price) + "</span></button></li>";
     }).join("") + "</ul></section>";
@@ -643,7 +656,7 @@
   }
 
   function applyInitialFilters() {
-    state.filters = catalog.parseCatalogQuery(new URLSearchParams(window.location.search), catalog.categoriesFrom(products));
+    state.filters = catalog.parseCatalogQuery(new URLSearchParams(window.location.search), catalog.categoriesFrom(shopProducts()));
     searchInput.value = state.filters.query;
     sortSelect.value = state.filters.sort;
     minPrice.value = state.filters.minPrice == null ? "" : String(state.filters.minPrice);
@@ -777,6 +790,47 @@
     });
     ["nama", "whatsapp", "alamat"].forEach(function (field) {
       document.getElementById(field).addEventListener("input", function () { showFieldError(field, ""); });
+    });
+    loadStorefrontCatalog();
+  }
+
+  function setCatalogSource(message) {
+    var note = document.getElementById("catalogSource");
+    if (note) note.textContent = message;
+  }
+
+  function applyCatalog(list) {
+    products = list;
+    state.wishlist = loadWishlist();
+    applyInitialFilters();
+    publishFilters();
+    renderCart();
+    renderWishlist();
+  }
+
+  function loadStorefrontCatalog() {
+    fetch("catalog.json", { cache: "no-store" }).then(function (response) {
+      if (!response.ok) throw new Error("katalog");
+      return response.json();
+    }).then(function (data) {
+      var parsed = catalog.parseCatalogDocument(data);
+      if (!parsed.ok) throw new Error(parsed.message);
+      if (!previewDraftRequested) {
+        applyCatalog(parsed.products);
+        setCatalogSource("Katalog tayang dari berkas catalog.json. Draf di halaman Kelola tidak ikut tampil di etalase ini.");
+        return;
+      }
+      var draft = catalog.parseStoredDraft(readStorage(DRAFT_KEY));
+      if (!draft.ok) {
+        applyCatalog(parsed.products);
+        setCatalogSource("Pratinjau draf diminta, tetapi tidak ada draf valid di peramban ini. Yang tampil tetap katalog tayang.");
+        return;
+      }
+      applyCatalog(draft.products);
+      setCatalogSource("Pratinjau draf lokal di peramban ini. Pengunjung lain tetap melihat katalog tayang.");
+    }).catch(function () {
+      applyCatalog(catalog.products);
+      setCatalogSource("Berkas catalog.json tidak termuat. Etalase memakai katalog contoh bawaan, bukan draf lokal.");
     });
   }
 

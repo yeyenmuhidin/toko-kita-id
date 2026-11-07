@@ -237,7 +237,7 @@ test("halaman mempertahankan checkout, merek, dan batas demo", () => {
   });
   assert.match(html, /Toko Kita ID/);
   assert.ok(html.indexOf('src="catalog.js"') < html.indexOf('src="script.js"'));
-  assert.match(html, /Katalog demo tersimpan di peramban ini/);
+  assert.match(html, /Etalase membaca berkas catalog\.json di situs ini, bukan draf peramban/);
   assert.match(html, /Simulasi checkout/);
   assert.match(html, /Tidak ada pembayaran atau pengiriman yang diproses/);
   assert.match(script, /tokoKitaCart/);

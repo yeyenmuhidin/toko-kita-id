@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Kelola draf katalog Toko Kita ID. Perubahan di halaman ini belum tayang untuk pengunjung lain." />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>Kelola katalog - Toko Kita ID</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [hidden] { display: none !important; }
+    html { overflow-x: clip; }
+    :focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <a href="#daftar-produk" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-3 focus:py-2 focus:rounded-lg">Lewati ke daftar produk</a>
+  <header class="bg-white shadow-md sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="./" class="flex items-center gap-2 font-bold text-indigo-700 text-lg">Toko Kita ID</a>
+      <span class="text-sm text-gray-600">Kelola katalog</span>
+      <a href="./" class="ml-auto text-sm font-medium text-indigo-700 min-h-11 inline-flex items-center">Ke etalase</a>
+    </div>
+  </header>
+
+  <div class="bg-amber-50 border-y border-amber-200">
+    <div class="max-w-5xl mx-auto px-4 py-3 text-sm text-amber-950 space-y-1">
+      <p id="draftBanner" class="font-medium">Halaman ini mengedit draf di peramban Anda. Draf belum tayang dan tidak terlihat pengunjung lain.</p>
+      <p id="draftMeta">Memuat katalog tayang…</p>
+    </div>
+  </div>
+
+  <main class="max-w-5xl mx-auto px-4 py-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <section id="daftar-produk" class="bg-white rounded-xl shadow-sm p-4">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <h1 class="text-xl font-bold">Daftar draf</h1>
+        <button id="newProduct" type="button" class="min-h-11 bg-indigo-600 text-white rounded-lg px-4 font-medium">Tambah produk</button>
+      </div>
+      <label for="editorSearch" class="block text-sm font-medium mb-1">Cari di draf</label>
+      <input id="editorSearch" type="search" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base mb-3" placeholder="Nama atau kategori" />
+      <p id="listStatus" class="text-sm text-gray-600 mb-3" aria-live="polite"></p>
+      <div id="productList" class="space-y-3"></div>
+    </section>
+
+    <section class="bg-white rounded-xl shadow-sm p-4">
+      <h2 id="formTitle" tabindex="-1" class="text-xl font-bold mb-1">Ubah produk</h2>
+      <p class="text-sm text-gray-600 mb-4">Simpan hanya menulis draf di peramban ini. Harga dan foto baru belum masuk etalase pengunjung.</p>
+      <form id="productForm" class="space-y-3" novalidate>
+        <div>
+          <label for="productName" class="block text-sm font-medium mb-1">Nama produk</label>
+          <input id="productName" required maxlength="80" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base" />
+          <p id="nameError" hidden class="mt-1 text-sm text-red-700" role="alert"></p>
+        </div>
+        <div>
+          <label for="productPrice" class="block text-sm font-medium mb-1">Harga (rupiah, tanpa titik)</label>
+          <input id="productPrice" inputmode="numeric" required class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base" placeholder="Contoh 150000" />
+          <p id="priceError" hidden class="mt-1 text-sm text-red-700" role="alert"></p>
+        </div>
+        <div>
+          <label for="productCategory" class="block text-sm font-medium mb-1">Kategori</label>
+          <input id="productCategory" list="categoryOptions" required maxlength="40" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base" />
+          <datalist id="categoryOptions"></datalist>
+          <p id="categoryError" hidden class="mt-1 text-sm text-red-700" role="alert"></p>
+        </div>
+        <div>
+          <label for="productDescription" class="block text-sm font-medium mb-1">Deskripsi</label>
+          <textarea id="productDescription" required maxlength="500" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base"></textarea>
+          <p id="descriptionError" hidden class="mt-1 text-sm text-red-700" role="alert"></p>
+        </div>
+        <div>
+          <label for="productImageUrl" class="block text-sm font-medium mb-1">Tautan gambar https</label>
+          <input id="productImageUrl" type="url" inputmode="url" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base" placeholder="https://..." />
+          <p id="imageError" hidden class="mt-1 text-sm text-red-700" role="alert"></p>
+        </div>
+        <div>
+          <label for="productImageFile" class="block text-sm font-medium mb-1">Atau pilih gambar dari perangkat</label>
+          <input id="productImageFile" type="file" accept="image/jpeg,image/png,image/webp" class="block w-full text-sm" />
+          <p class="mt-1 text-sm text-gray-600">JPEG, PNG, atau WebP, maksimal 350 KB. Berkas tidak diunggah ke server; isinya ikut draf sampai Anda menerbitkan catalog.json.</p>
+          <p id="fileError" hidden class="mt-1 text-sm text-red-700" role="alert"></p>
+        </div>
+        <label class="flex items-start gap-3 min-h-11">
+          <input id="productVisible" type="checkbox" class="mt-1" checked />
+          <span><span class="font-medium">Tampilkan di etalase</span><span class="block text-sm text-gray-600">Ini hanya menyembunyikan atau menampilkan produk di katalog. Bukan stok gudang dan tidak mengurangi persediaan.</span></span>
+        </label>
+        <div id="preview" class="border border-dashed border-gray-300 rounded-xl p-3" aria-live="polite"></div>
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" class="min-h-11 bg-indigo-600 text-white rounded-lg px-4 font-medium">Simpan ke draf</button>
+          <button id="deleteProduct" type="button" class="min-h-11 border border-red-300 text-red-700 rounded-lg px-4 font-medium" hidden>Hapus dari draf</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="bg-white rounded-xl shadow-sm p-4 lg:col-span-2 space-y-4">
+      <h2 class="text-xl font-bold">Berkas draf dan cara menayangkan</h2>
+      <p id="fileStatus" class="text-sm text-gray-700" aria-live="polite">Unduhan dan impor hanya mengubah draf di peramban ini. Keduanya belum menayangkan produk.</p>
+      <div class="flex flex-wrap gap-2">
+        <button id="downloadDraft" type="button" class="min-h-11 bg-indigo-600 text-white rounded-lg px-4 font-medium">Unduh draf catalog.json</button>
+        <label class="min-h-11 inline-flex items-center border border-gray-300 rounded-lg px-4 font-medium cursor-pointer">
+          Impor berkas katalog
+          <input id="importFile" type="file" accept="application/json,.json" class="sr-only" />
+        </label>
+        <a id="previewDraft" href="index.html?pratinjau=draf" target="_blank" rel="noopener" class="min-h-11 inline-flex items-center border border-gray-300 rounded-lg px-4 font-medium">Pratinjau draf di peramban ini</a>
+        <button id="discardDraft" type="button" class="min-h-11 border border-gray-300 rounded-lg px-4 font-medium">Buang draf lokal</button>
+      </div>
+      <div>
+        <h3 class="font-semibold mb-2">Langkah Yeyen untuk menayangkan produk</h3>
+        <ol class="list-decimal pl-5 space-y-1 text-sm text-gray-700">
+          <li>Ubah nama, harga, foto, atau produk baru di formulir, lalu klik Simpan ke draf.</li>
+          <li>Klik Unduh draf catalog.json. Berkas yang terunduh belum tayang.</li>
+          <li>Buka repositori GitHub <span class="font-medium">yeyenmuhidin/toko-kita-id</span> di cabang main.</li>
+          <li>Ganti berkas <span class="font-medium">catalog.json</span> di akar repositori dengan unduhan itu, lalu commit.</li>
+          <li>Tunggu GitHub Pages selesai, lalu buka etalase dan muat ulang. Pengunjung baru melihat perubahan setelah langkah ini.</li>
+        </ol>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
+        <h3 class="font-semibold mb-1">Agar bisa mengubah katalog dari perangkat lain dan langsung terlihat semua pengunjung</h3>
+        <p>Halaman statis ini tidak punya akun bersama. Yang diperlukan adalah layanan yang benar-benar memeriksa identitas Anda, lalu menulis berkas catalog.json ke tempat yang dibaca GitHub Pages. Contohnya aplikasi GitHub OAuth dengan izin menulis isi repositori, atau CMS yang commit ke repositori yang sama. Kata sandi yang disimpan di JavaScript tidak melakukan itu, jadi halaman ini tidak memintanya.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="confirmDialog" hidden class="fixed inset-0 z-50 bg-black/50 p-4 flex items-end sm:items-center justify-center">
+    <div role="dialog" aria-modal="true" aria-labelledby="confirmTitle" class="bg-white rounded-xl shadow-2xl w-full max-w-md p-5">
+      <h2 id="confirmTitle" class="text-lg font-bold mb-2" tabindex="-1">Konfirmasi</h2>
+      <p id="confirmMessage" class="text-sm text-gray-700 mb-4"></p>
+      <div class="flex gap-2 justify-end">
+        <button id="confirmCancel" type="button" class="min-h-11 px-4 rounded-lg border border-gray-300">Batal</button>
+        <button id="confirmOk" type="button" class="min-h-11 px-4 rounded-lg bg-red-600 text-white font-medium">Lanjutkan</button>
+      </div>
+    </div>
+  </div>
+  <p id="liveStatus" class="sr-only" aria-live="polite"></p>
+
+  <script src="catalog.js"></script>
+  <script src="kelola.js"></script>
+</body>
+</html>
