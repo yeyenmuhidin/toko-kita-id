@@ -42,6 +42,8 @@
           <span class="text-xl font-bold text-indigo-700">Toko Kita ID</span>
         </a>
         <div class="ml-auto flex items-center gap-1">
+          <a href="masuk.html" class="inline-flex items-center min-h-11 px-2 text-sm font-medium text-indigo-700">Masuk</a>
+          <a href="penjual.html" class="inline-flex items-center min-h-11 px-2 text-sm font-medium text-indigo-700">Jual</a>
           <a href="kelola.html" class="inline-flex items-center min-h-11 px-2 text-sm font-medium text-indigo-700">Kelola</a>
           <button id="wishlistBtn" type="button" class="relative inline-flex items-center gap-2 min-h-11 px-3 rounded-full hover:bg-gray-100" aria-expanded="false" aria-controls="wishlistSidebar">
             <i id="wishlistIcon" class="far fa-heart text-xl text-gray-700" aria-hidden="true"></i>
@@ -226,7 +228,9 @@
     <p class="max-w-7xl mx-auto px-4 py-6 text-red-800">JavaScript diperlukan untuk menampilkan katalog Toko Kita ID.</p>
   </noscript>
 
+  <script src="supabase-config.js"></script>
   <script src="catalog.js"></script>
   <script src="script.js"></script>
+  <script type="module" src="marketplace.mjs"></script>
 </body>
 </html>

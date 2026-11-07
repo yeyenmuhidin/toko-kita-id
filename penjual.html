@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jual - Toko Kita ID</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>[hidden]{display:none !important} :focus-visible{outline:2px solid #4338ca;outline-offset:2px}</style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <header class="bg-white shadow-sm">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
+      <a href="./" class="font-bold text-indigo-700">Toko Kita ID</a>
+      <a href="masuk.html" class="text-sm text-indigo-700">Masuk</a>
+      <a href="admin.html" class="ml-auto text-sm text-indigo-700">Tinjau</a>
+    </div>
+  </header>
+  <main class="max-w-3xl mx-auto px-4 py-6 space-y-4">
+    <p id="jualBanner" class="text-sm bg-amber-50 border border-amber-200 text-amber-950 rounded-lg p-3"></p>
+    <section id="jadiPenjual" hidden class="bg-white rounded-xl shadow-sm p-4 space-y-3">
+      <h1 class="text-xl font-bold">Jadi penjual</h1>
+      <form id="tokoForm" class="space-y-3">
+        <label class="block text-sm font-medium" for="shopName">Nama toko</label>
+        <input id="shopName" required minlength="2" maxlength="80" class="w-full border rounded-lg px-3 py-2.5 text-base" />
+        <label class="block text-sm font-medium" for="displayName">Nama tampilan</label>
+        <input id="displayName" required minlength="2" maxlength="80" class="w-full border rounded-lg px-3 py-2.5 text-base" />
+        <button class="min-h-11 bg-indigo-600 text-white rounded-lg px-4" type="submit">Simpan profil penjual</button>
+      </form>
+    </section>
+    <section id="produkPenjual" hidden class="bg-white rounded-xl shadow-sm p-4 space-y-3">
+      <h1 class="text-xl font-bold">Produk saya</h1>
+      <p class="text-sm text-gray-600">Produk baru berstatus menunggu. Pengunjung tidak melihatnya sebelum disetujui. Mengubah harga atau foto mengembalikan status ke menunggu.</p>
+      <form id="produkForm" class="grid gap-3">
+        <input id="productId" type="hidden" />
+        <label class="text-sm font-medium" for="productName">Nama</label>
+        <input id="productName" required maxlength="80" class="border rounded-lg px-3 py-2.5 text-base" />
+        <label class="text-sm font-medium" for="productPrice">Harga rupiah</label>
+        <input id="productPrice" inputmode="numeric" required class="border rounded-lg px-3 py-2.5 text-base" />
+        <label class="text-sm font-medium" for="productCategory">Kategori</label>
+        <input id="productCategory" required maxlength="40" class="border rounded-lg px-3 py-2.5 text-base" />
+        <label class="text-sm font-medium" for="productDescription">Deskripsi</label>
+        <textarea id="productDescription" required maxlength="500" rows="4" class="border rounded-lg px-3 py-2.5 text-base"></textarea>
+        <label class="text-sm font-medium" for="productImage">Foto JPEG, PNG, atau WebP, maksimal 350 KB</label>
+        <input id="productImage" type="file" accept="image/jpeg,image/png,image/webp" class="text-sm" />
+        <button class="min-h-11 bg-indigo-600 text-white rounded-lg px-4" type="submit">Kirim produk</button>
+      </form>
+      <div id="daftarProduk" class="space-y-3"></div>
+    </section>
+    <p id="jualStatus" class="text-sm" aria-live="polite"></p>
+  </main>
+  <script src="supabase-config.js"></script>
+  <script src="catalog.js"></script>
+  <script type="module" src="penjual.mjs"></script>
+</body>
+</html>

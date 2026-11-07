@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masuk - Toko Kita ID</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>[hidden]{display:none !important} :focus-visible{outline:2px solid #4338ca;outline-offset:2px}</style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <header class="bg-white shadow-sm">
+    <div class="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="./" class="font-bold text-indigo-700">Toko Kita ID</a>
+      <a href="penjual.html" class="ml-auto text-sm text-indigo-700">Jual</a>
+    </div>
+  </header>
+  <main class="max-w-lg mx-auto px-4 py-6 space-y-4">
+    <p id="akunBanner" class="text-sm bg-amber-50 border border-amber-200 text-amber-950 rounded-lg p-3"></p>
+    <section class="bg-white rounded-xl shadow-sm p-4 space-y-3">
+      <h1 class="text-xl font-bold">Masuk</h1>
+      <form id="masukForm" class="space-y-3">
+        <label class="block text-sm font-medium" for="masukEmail">Email</label>
+        <input id="masukEmail" type="email" autocomplete="username" required class="w-full border rounded-lg px-3 py-2.5 text-base" />
+        <label class="block text-sm font-medium" for="masukPassword">Kata sandi</label>
+        <input id="masukPassword" type="password" autocomplete="current-password" required minlength="8" class="w-full border rounded-lg px-3 py-2.5 text-base" />
+        <button class="w-full min-h-11 bg-indigo-600 text-white rounded-lg font-medium" type="submit">Masuk</button>
+      </form>
+    </section>
+    <section class="bg-white rounded-xl shadow-sm p-4 space-y-3">
+      <h2 class="text-xl font-bold">Daftar</h2>
+      <form id="daftarForm" class="space-y-3">
+        <label class="block text-sm font-medium" for="daftarNama">Nama tampilan</label>
+        <input id="daftarNama" required minlength="2" maxlength="80" class="w-full border rounded-lg px-3 py-2.5 text-base" />
+        <label class="block text-sm font-medium" for="daftarEmail">Email</label>
+        <input id="daftarEmail" type="email" autocomplete="email" required class="w-full border rounded-lg px-3 py-2.5 text-base" />
+        <label class="block text-sm font-medium" for="daftarPassword">Kata sandi baru</label>
+        <input id="daftarPassword" type="password" autocomplete="new-password" required minlength="8" class="w-full border rounded-lg px-3 py-2.5 text-base" />
+        <button class="w-full min-h-11 bg-indigo-600 text-white rounded-lg font-medium" type="submit">Daftar</button>
+      </form>
+    </section>
+    <button id="keluar" type="button" hidden class="w-full min-h-11 border border-gray-300 rounded-lg">Keluar</button>
+    <p id="akunStatus" class="text-sm" aria-live="polite"></p>
+  </main>
+  <script src="supabase-config.js"></script>
+  <script type="module" src="masuk.mjs"></script>
+</body>
+</html>

@@ -146,7 +146,7 @@
 
   function toCartItem(product, quantity) {
     return {
-      id: product.id,
+      id: canonicalProductId(product.id),
       name: product.name,
       price: product.price,
       image: product.image,
@@ -157,7 +157,7 @@
   }
 
   function addItem(items, product, quantity) {
-    if (!product || !Number.isInteger(product.id)) return items.slice();
+    if (!product || canonicalProductId(product.id) == null) return items.slice();
     var qty = clampQuantity(quantity);
     var existing = null;
     items.forEach(function (item) {
@@ -197,15 +197,25 @@
     return items.length > 0 && totalQuantity(items) > 0;
   }
 
+  function canonicalProductId(value) {
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
+    if (typeof value === "string" && /^[1-9]\d{0,8}$/.test(value)) return Number(value);
+    if (typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      return value.toLowerCase();
+    }
+    return null;
+  }
+
   function toggleWishlist(ids, productId) {
-    if (!Number.isInteger(productId)) return ids.slice();
-    if (ids.indexOf(productId) !== -1) return ids.filter(function (id) { return id !== productId; });
-    return ids.concat([productId]);
+    var id = canonicalProductId(productId);
+    if (id == null) return ids.slice();
+    if (ids.indexOf(id) !== -1) return ids.filter(function (item) { return item !== id; });
+    return ids.concat([id]);
   }
 
   function integerId(value) {
-    var id = Number(value);
-    return Number.isInteger(id) && id > 0 ? id : null;
+    var id = canonicalProductId(value);
+    return typeof id === "number" ? id : null;
   }
 
   function parseStoredCart(raw) {
@@ -219,7 +229,7 @@
     if (!Array.isArray(data)) return [];
     return data.flatMap(function (item) {
       if (!item || typeof item !== "object") return [];
-      var id = integerId(item.id);
+      var id = canonicalProductId(item.id);
       var price = Number(item.price);
       var quantity = Number(item.quantity);
       if (id == null || !Number.isFinite(price) || !Number.isFinite(quantity)) return [];
@@ -251,7 +261,7 @@
     }, {}) : null;
     var ids = [];
     data.forEach(function (value) {
-      var id = integerId(value);
+      var id = canonicalProductId(value);
       if (id == null) return;
       if (known && !known[id]) return;
       if (ids.indexOf(id) === -1) ids.push(id);
@@ -270,7 +280,7 @@
     if (!Array.isArray(data) || data.length !== cart.length) return true;
     return data.some(function (item, index) {
       var next = cart[index];
-      return Number(item && item.quantity) !== next.quantity || Number(item && item.id) !== next.id;
+      return Number(item && item.quantity) !== next.quantity || String(item && item.id) !== String(next.id);
     });
   }
 
@@ -283,7 +293,7 @@
       return true;
     }
     if (!Array.isArray(data) || data.length !== ids.length) return true;
-    return data.some(function (value, index) { return Number(value) !== ids[index]; });
+    return data.some(function (value, index) { return String(value) !== String(ids[index]); });
   }
 
   function relatedProducts(list, product) {
@@ -294,6 +304,7 @@
   }
 
   function catalogCode(id) {
+    if (typeof id === "string" && id.indexOf("-") !== -1) return "TKI-" + id.slice(0, 8).toUpperCase();
     return "TKI-" + String(id).padStart(3, "0");
   }
 
@@ -575,6 +586,7 @@
     totalPrice: totalPrice,
     canCheckout: canCheckout,
     toggleWishlist: toggleWishlist,
+    canonicalProductId: canonicalProductId,
     parseStoredCart: parseStoredCart,
     parseStoredWishlist: parseStoredWishlist,
     cartNeedsRepair: cartNeedsRepair,
