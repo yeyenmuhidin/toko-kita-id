@@ -167,7 +167,7 @@ test("parse keranjang lama tetap dipakai dan data rusak dibuang", () => {
   assert.equal(catalog.cartNeedsRepair(mixed, repaired), true);
 });
 
-test("daftar simpan membalik status dan membuang id yang tidak dikenal", () => {
+test("favorit dan perbandingan hanya menyimpan id yang sah", () => {
   assert.deepEqual(catalog.toggleWishlist([1], 1), []);
   assert.deepEqual(catalog.toggleWishlist([1], 4), [1, 4]);
   assert.deepEqual(catalog.toggleWishlist([1], 4), catalog.toggleWishlist([1], 4));
@@ -176,6 +176,23 @@ test("daftar simpan membalik status dan membuang id yang tidak dikenal", () => {
   assert.deepEqual(ids, [2, 8]);
   assert.equal(catalog.wishlistNeedsRepair(raw, ids), true);
   assert.deepEqual(catalog.parseStoredWishlist("bukan-json", [1]), []);
+  assert.equal(catalog.COMPARE_LIMIT, 3);
+  assert.deepEqual(catalog.toggleCompare([], 1), { ids: [1], status: "added" });
+  assert.deepEqual(catalog.toggleCompare([1, 2, 4], 5).status, "limit");
+  assert.deepEqual(catalog.toggleCompare([1, 2, 4], 5).ids, [1, 2, 4]);
+  assert.deepEqual(catalog.toggleCompare([1, 2], 2), { ids: [1], status: "removed" });
+  assert.equal(catalog.toggleCompare([1], "<script>alert(1)</script>").status, "invalid");
+  const stale = JSON.stringify([1, 99, "<script>", 2, 4, 5]);
+  assert.deepEqual(catalog.parseStoredCompare(stale, [1, 2, 4, 5]), [1, 2, 4]);
+  assert.equal(catalog.compareNeedsRepair(stale, [1, 2, 4]), true);
+  assert.deepEqual(catalog.parseStoredCompare("bukan-json", [1]), []);
+  assert.equal(catalog.availabilityLabel(null), "Tidak ada di katalog");
+  assert.equal(catalog.availabilityLabel({ stock: 0 }), "Habis");
+  assert.equal(catalog.availabilityLabel({ contoh: true, stock: 4 }), "Contoh, tidak dijual");
+  assert.equal(catalog.availabilityLabel({ visible: false, stock: 4 }), "Tidak ditampilkan");
+  assert.equal(catalog.availabilityLabel({ stock: 2 }), "Tersedia, 2");
+  assert.equal(catalog.availabilityLabel({ name: "<script>" }), "Ketersediaan tidak dicatat");
+  assert.equal(catalog.escapeHtml(catalog.availabilityLabel({ name: "<script>" })).includes("<script>"), false);
 });
 
 test("detail hanya mengaitkan produk dalam kategori yang sama", () => {
@@ -249,6 +266,9 @@ test("halaman mempertahankan checkout, merek, dan batas demo", () => {
   assert.match(html, /Tidak ada pembayaran atau pengiriman yang diproses/);
   assert.match(script, /tokoKitaCart/);
   assert.match(script, /tokoKitaWishlist/);
+  assert.match(script, /tokoKitaBanding/);
+  assert.match(html, /id="compareBtn"/);
+  assert.match(html, /id="compareSidebar"/);
   assert.match(script, /TokoKitaCatalog/);
   assert.equal(script.includes("18999000"), false);
   ["tokopedia", "terjual", "bintang", "rating", "gratis ongkir", "official store"].forEach((word) => {

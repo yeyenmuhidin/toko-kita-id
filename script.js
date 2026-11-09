@@ -17,14 +17,16 @@
   var products = catalog.products;
   var DRAFT_KEY = "tokoKitaCatalogDraft";
   var previewDraftRequested = new URLSearchParams(window.location.search).get("pratinjau") === "draf";
+  var demoRequested = new URLSearchParams(window.location.search).get("demo") === "1";
 
   function shopProducts() {
     return catalog.storefrontProducts(products);
   }
   var CART_KEY = "tokoKitaCart";
   var WISHLIST_KEY = "tokoKitaWishlist";
-  var ACTIVE_CATEGORY = "shrink-0 rounded-full px-4 py-2 min-h-11 text-sm font-medium bg-indigo-600 text-white";
-  var IDLE_CATEGORY = "shrink-0 rounded-full px-4 py-2 min-h-11 text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:border-indigo-400";
+  var COMPARE_KEY = "tokoKitaBanding";
+  var ACTIVE_CATEGORY = "snap-start shrink-0 rounded-full px-4 py-2 min-h-11 text-sm font-medium bg-indigo-600 text-white";
+  var IDLE_CATEGORY = "snap-start shrink-0 rounded-full px-4 py-2 min-h-11 text-sm font-medium bg-indigo-50 text-indigo-800 border border-indigo-100 hover:border-indigo-400";
 
   var searchForm = document.getElementById("searchForm");
   var searchInput = document.getElementById("searchInput");
@@ -68,6 +70,7 @@
     document.getElementById("demoBanner"),
     document.getElementById("storageWarning"),
     document.getElementById("katalog"),
+    document.getElementById("compareBar"),
     document.getElementById("siteFooter")
   ];
   var ACTION_NAMES = {
@@ -79,6 +82,9 @@
     "qty-inc": true,
     "remove-cart": true,
     "remove-wishlist": true,
+    "toggle-compare": true,
+    "remove-compare": true,
+    "clear-compare": true,
     "set-category": true,
     "reset-filters": true,
     "shop": true
@@ -88,6 +94,7 @@
     filters: catalog.createFilters(),
     cart: [],
     wishlist: [],
+    compare: [],
     detailId: null,
     activeDrawer: null,
     activeModal: null,
@@ -130,7 +137,7 @@
 
   function loadWishlist() {
     var raw = readStorage(WISHLIST_KEY);
-    var ids = catalog.parseStoredWishlist(raw, products.map(function (product) { return product.id; }));
+    var ids = catalog.parseStoredWishlist(raw, knownProductIds());
     if (catalog.wishlistNeedsRepair(raw, ids)) writeStorage(WISHLIST_KEY, JSON.stringify(ids));
     return ids;
   }
@@ -141,6 +148,21 @@
 
   function persistWishlist() {
     if (!writeStorage(WISHLIST_KEY, JSON.stringify(state.wishlist))) paintStorageWarning();
+  }
+
+  function knownProductIds() {
+    return products.map(function (product) { return product.id; });
+  }
+
+  function loadCompare() {
+    var raw = readStorage(COMPARE_KEY);
+    var ids = catalog.parseStoredCompare(raw, knownProductIds());
+    if (catalog.compareNeedsRepair(raw, ids)) writeStorage(COMPARE_KEY, JSON.stringify(ids));
+    return ids;
+  }
+
+  function persistCompare() {
+    if (!writeStorage(COMPARE_KEY, JSON.stringify(state.compare))) paintStorageWarning();
   }
 
   function paintStorageWarning() {
@@ -166,9 +188,10 @@
 
   function syncUrl() {
     var next = catalog.toCatalogSearch(state.filters);
-    if (previewDraftRequested) {
+    if (previewDraftRequested || demoRequested) {
       var params = new URLSearchParams(next.charAt(0) === "?" ? next.slice(1) : next);
-      params.set("pratinjau", "draf");
+      if (previewDraftRequested) params.set("pratinjau", "draf");
+      if (demoRequested) params.set("demo", "1");
       var query = params.toString();
       next = query ? "?" + query : "";
     }
@@ -184,12 +207,17 @@
   function paintChrome() {
     var cartOpen = state.activeDrawer === "cart";
     var wishOpen = state.activeDrawer === "wishlist";
+    var compareOpen = state.activeDrawer === "compare";
+    var compareSidebar = document.getElementById("compareSidebar");
     cartSidebar.classList.toggle("open", cartOpen);
     wishlistSidebar.classList.toggle("open", wishOpen);
+    if (compareSidebar) compareSidebar.classList.toggle("open", compareOpen);
     cartSidebar.inert = !cartOpen;
     wishlistSidebar.inert = !wishOpen;
+    if (compareSidebar) compareSidebar.inert = !compareOpen;
     cartSidebar.setAttribute("aria-hidden", cartOpen ? "false" : "true");
     wishlistSidebar.setAttribute("aria-hidden", wishOpen ? "false" : "true");
+    if (compareSidebar) compareSidebar.setAttribute("aria-hidden", compareOpen ? "false" : "true");
     cartOverlay.hidden = !state.activeDrawer;
     detailModal.hidden = state.activeModal !== "detail";
     checkoutModal.hidden = state.activeModal !== "checkout";
@@ -197,6 +225,8 @@
     document.body.style.overflow = state.activeDrawer || state.activeModal ? "hidden" : "";
     cartBtn.setAttribute("aria-expanded", cartOpen ? "true" : "false");
     wishlistBtn.setAttribute("aria-expanded", wishOpen ? "true" : "false");
+    var compareBtn = document.getElementById("compareBtn");
+    if (compareBtn) compareBtn.setAttribute("aria-expanded", compareOpen ? "true" : "false");
     var dialogOpen = Boolean(state.activeDrawer || state.activeModal);
     pageRegions.forEach(function (region) {
       if (region) region.inert = dialogOpen;
@@ -208,7 +238,8 @@
     if (!opts.preserveFocusMemory && !state.activeDrawer && !state.activeModal) rememberFocus();
     state.activeDrawer = name;
     paintChrome();
-    document.getElementById(name === "cart" ? "closeCart" : "closeWishlist").focus();
+    var closeId = name === "cart" ? "closeCart" : name === "compare" ? "closeCompare" : "closeWishlist";
+    document.getElementById(closeId).focus();
   }
 
   function openModal(name, options) {
@@ -267,8 +298,9 @@
   function captureActionFocus(container) {
     var active = document.activeElement;
     if (!active || !container.contains(active) || !ACTION_NAMES[active.dataset.action]) return null;
-    if (active.dataset.id && !/^\d+$/.test(active.dataset.id)) return null;
-    return { action: active.dataset.action, id: active.dataset.id || "" };
+    var canonical = catalog.canonicalProductId(active.dataset.id);
+    if (active.dataset.id && canonical == null) return null;
+    return { action: active.dataset.action, id: canonical == null ? "" : String(canonical) };
   }
 
   function restoreActionFocus(container, token, fallback) {
@@ -335,26 +367,28 @@
     }
     grid.innerHTML = visible.map(function (product) {
       var saved = state.wishlist.indexOf(product.id) !== -1;
+      var compared = state.compare.indexOf(product.id) !== -1;
       var inCart = cartQty(product.id);
-      var cartNote = inCart > 0 ? '<p class="text-sm text-indigo-700 mt-2">Sudah di keranjang: ' + inCart + "</p>" : "";
-      return '<article class="product-card relative bg-white rounded-xl shadow-sm overflow-hidden flex flex-col" data-product-id="' + product.id + '">' +
-        '<button type="button" data-action="open-detail" data-id="' + product.id + '" class="absolute inset-0 z-0 rounded-xl" aria-label="Lihat detail ' + catalog.escapeHtml(product.name) + '"></button>' +
+      var cartNote = inCart > 0 ? '<p class="text-sm font-medium text-indigo-700">Sudah di keranjang: ' + inCart + "</p>" : "";
+      return '<article class="product-card relative bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col' + (compared ? " is-compared" : "") + '" data-product-id="' + product.id + '">' +
+        '<button type="button" data-action="open-detail" data-id="' + product.id + '" class="absolute inset-0 z-0 rounded-2xl" aria-label="Lihat detail ' + catalog.escapeHtml(product.name) + '"></button>' +
         '<div class="relative z-10 pointer-events-none">' +
-          '<div class="relative h-52 bg-gray-100">' +
+          '<div class="relative aspect-[4/3] bg-indigo-50">' +
             imageMarkup(product.image, "", "w-full h-full object-cover") +
-            '<span class="absolute top-3 left-3 bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">' + catalog.escapeHtml(product.category) + "</span>" +
-            (product.contoh ? '<span class="absolute top-3 right-3 bg-amber-100 text-amber-950 text-xs px-2 py-1 rounded-full">Contoh</span>' : "") +
           "</div>" +
-          '<div class="p-4">' +
-            '<h3 class="font-semibold text-lg mb-1">' + catalog.escapeHtml(product.name) + "</h3>" +
-            '<p class="text-gray-600 text-sm line-clamp-2">' + catalog.escapeHtml(product.description) + "</p>" +
-            '<p class="text-indigo-700 font-bold text-lg mt-3">' + catalog.formatRupiah(product.price) + "</p>" +
+          '<div class="p-4 flex flex-col gap-2">' +
+            '<p class="self-start rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">' + catalog.escapeHtml(product.category) + "</p>" +
+            '<h3 class="font-semibold text-base leading-snug text-gray-900">' + catalog.escapeHtml(product.name) + "</h3>" +
+            '<p class="text-gray-600 text-sm leading-relaxed line-clamp-2">' + catalog.escapeHtml(product.description) + "</p>" +
+            '<p class="text-indigo-800 font-bold text-lg tabular-nums">' + catalog.formatRupiah(product.price) + "</p>" +
+            '<p class="text-sm text-gray-600">' + catalog.escapeHtml(catalog.availabilityLabel(product)) + "</p>" +
             cartNote +
           "</div>" +
         "</div>" +
-        '<div class="relative z-10 p-4 pt-0 mt-auto flex gap-2">' +
-          '<button type="button" data-action="toggle-wishlist" data-id="' + product.id + '" class="flex-1 min-h-11 rounded-lg border px-3 py-2 text-sm font-medium ' + (saved ? "border-rose-200 bg-rose-50 text-rose-700" : "border-gray-300 bg-white text-gray-700") + '" aria-pressed="' + (saved ? "true" : "false") + '" aria-label="' + (saved ? "Hapus " : "Simpan ") + catalog.escapeHtml(product.name) + (saved ? " dari simpanan" : " ke daftar simpan") + '">' + (saved ? "Tersimpan" : "Simpan") + "</button>" +
-          '<button type="button" data-action="add-cart" data-id="' + product.id + '" class="flex-1 min-h-11 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 text-sm font-medium" aria-label="Tambah ' + catalog.escapeHtml(product.name) + ' ke keranjang">Tambah</button>' +
+        '<div class="relative z-10 px-4 pb-4 mt-auto grid grid-cols-2 gap-2">' +
+          '<button type="button" data-action="toggle-wishlist" data-id="' + product.id + '" class="min-h-11 rounded-xl border px-2 py-2 text-sm font-medium ' + (saved ? "border-rose-200 bg-rose-50 text-rose-700" : "border-gray-200 bg-white text-gray-700") + '" aria-pressed="' + (saved ? "true" : "false") + '" aria-label="' + (saved ? "Hapus " : "Simpan ") + catalog.escapeHtml(product.name) + (saved ? " dari favorit" : " ke favorit") + '">' + (saved ? "Favorit" : "Simpan") + "</button>" +
+          '<button type="button" data-action="toggle-compare" data-id="' + product.id + '" class="min-h-11 rounded-xl border px-2 py-2 text-sm font-medium ' + (compared ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-gray-200 bg-white text-gray-700") + '" aria-pressed="' + (compared ? "true" : "false") + '" aria-label="' + (compared ? "Keluarkan " : "Bandingkan ") + catalog.escapeHtml(product.name) + '">' + (compared ? "Dipilih" : "Bandingkan") + "</button>" +
+          '<button type="button" data-action="add-cart" data-id="' + product.id + '" class="col-span-2 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 text-sm font-medium" aria-label="Tambah ' + catalog.escapeHtml(product.name) + ' ke keranjang">Tambah ke keranjang</button>' +
         "</div>" +
       "</article>";
     }).join("");
@@ -371,7 +405,24 @@
     var saved = state.wishlist.length;
     wishlistCount.textContent = String(saved);
     wishlistCount.hidden = saved === 0;
-    wishlistBtn.setAttribute("aria-label", saved > 0 ? "Buka daftar simpan, " + saved + " produk" : "Buka daftar simpan");
+    wishlistBtn.setAttribute("aria-label", saved > 0 ? "Buka favorit, " + saved + " produk" : "Buka favorit");
+    var compareCount = document.getElementById("compareCount");
+    var compareIcon = document.getElementById("compareIcon");
+    var compareBtn = document.getElementById("compareBtn");
+    var compared = state.compare.length;
+    if (compareCount && compareBtn) {
+      compareCount.textContent = String(compared);
+      compareCount.hidden = compared === 0;
+      compareBtn.setAttribute("aria-label", compared > 0 ? "Buka perbandingan, " + compared + " dari 3 produk" : "Buka perbandingan");
+      if (compareIcon) compareIcon.className = "fas fa-columns text-xl " + (compared > 0 ? "text-indigo-700" : "text-gray-700");
+    }
+    var compareBar = document.getElementById("compareBar");
+    var compareBarText = document.getElementById("compareBarText");
+    if (compareBar && compareBarText) {
+      compareBar.hidden = compared === 0;
+      compareBarText.textContent = compared + " dari 3 produk untuk dibandingkan";
+      document.body.classList.toggle("has-compare", compared > 0);
+    }
     wishlistIcon.className = (saved > 0 ? "fas" : "far") + " fa-heart text-xl " + (saved > 0 ? "text-rose-600" : "text-gray-700");
   }
 
@@ -415,7 +466,7 @@
   function renderWishlist() {
     var restore = captureActionFocus(wishlistItems);
     if (state.wishlist.length === 0) {
-      wishlistItems.innerHTML = '<div class="text-center py-12 text-gray-500" role="status"><i class="far fa-heart text-5xl mb-4" aria-hidden="true"></i><p class="mb-4">Belum ada produk tersimpan</p><button type="button" data-action="shop" class="min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium">Lihat produk</button></div>';
+      wishlistItems.innerHTML = '<div class="text-center py-12 text-gray-500" role="status"><i class="far fa-heart text-5xl mb-4" aria-hidden="true"></i><p class="mb-2 font-medium text-gray-800">Belum ada favorit</p><p class="mb-4 text-sm">Simpan produk dari katalog. Daftar ini tetap di peramban ini.</p><button type="button" data-action="shop" class="min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium">Lihat produk</button></div>';
       renderBadges();
       restoreActionFocus(wishlistItems, restore, document.getElementById("closeWishlist"));
       return;
@@ -423,23 +474,67 @@
     wishlistItems.innerHTML = state.wishlist.map(function (id) {
       var product = productById(id);
       if (!product) return "";
-      return '<div class="flex gap-4 border-b pb-4">' +
-        imageMarkup(product.image, product.name, "w-20 h-20 object-cover rounded-lg shrink-0") +
-        '<div class="flex-1 min-w-0">' +
-          '<h3 class="font-medium">' + catalog.escapeHtml(product.name) + "</h3>" +
-          '<p class="text-sm text-gray-600">' + catalog.escapeHtml(product.category) + (product.visible === false ? " · Disembunyikan dari etalase" : "") + "</p>" +
-          '<p class="text-indigo-700 font-semibold text-sm">' + catalog.formatRupiah(product.price) + "</p>" +
-          '<div class="flex flex-wrap gap-2 mt-2">' +
-            '<button type="button" data-action="open-detail" data-id="' + product.id + '" class="min-h-11 px-3 rounded-lg border border-gray-300 text-sm font-medium">Detail</button>' +
-            '<button type="button" data-action="add-cart" data-id="' + product.id + '" class="min-h-11 px-3 rounded-lg bg-indigo-600 text-white text-sm font-medium">Tambah ke keranjang</button>' +
-            '<button type="button" data-action="remove-wishlist" data-id="' + product.id + '" class="min-h-11 px-3 rounded-lg text-rose-700 text-sm font-medium">Hapus</button>' +
+      var compared = state.compare.indexOf(product.id) !== -1;
+      return '<article class="rounded-2xl border border-gray-200 bg-white p-3">' +
+        '<div class="flex gap-3">' +
+          imageMarkup(product.image, product.name, "w-16 h-16 object-cover rounded-xl shrink-0") +
+          '<div class="min-w-0">' +
+            '<h3 class="font-semibold leading-snug">' + catalog.escapeHtml(product.name) + "</h3>" +
+            '<p class="text-sm text-gray-600">' + catalog.escapeHtml(product.category) + (product.visible === false ? " · Disembunyikan dari etalase" : "") + "</p>" +
+            '<p class="text-indigo-800 font-bold tabular-nums">' + catalog.formatRupiah(product.price) + "</p>" +
           "</div>" +
         "</div>" +
-      "</div>";
+        '<div class="mt-3 grid grid-cols-2 gap-2">' +
+          '<button type="button" data-action="open-detail" data-id="' + product.id + '" class="min-h-11 px-3 rounded-xl border border-gray-200 text-sm font-medium">Detail</button>' +
+          '<button type="button" data-action="toggle-compare" data-id="' + product.id + '" class="min-h-11 px-3 rounded-xl border text-sm font-medium ' + (compared ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-gray-200") + '" aria-pressed="' + (compared ? "true" : "false") + '">' + (compared ? "Dipilih" : "Bandingkan") + "</button>" +
+          '<button type="button" data-action="add-cart" data-id="' + product.id + '" class="col-span-2 min-h-11 px-3 rounded-xl bg-indigo-600 text-white text-sm font-medium">Tambah ke keranjang</button>' +
+          '<button type="button" data-action="remove-wishlist" data-id="' + product.id + '" class="col-span-2 min-h-11 px-3 rounded-xl border border-rose-200 text-rose-700 text-sm font-medium">Hapus dari favorit</button>' +
+        "</div>" +
+      "</article>";
     }).join("");
     bindImageFallbacks(wishlistItems);
     renderBadges();
     restoreActionFocus(wishlistItems, restore, document.getElementById("closeWishlist"));
+  }
+
+  function compareField(label, value) {
+    return '<div class="border-b border-gray-100 py-2"><dt class="text-xs font-medium uppercase tracking-wide text-gray-500">' + label + '</dt><dd class="mt-1 text-sm text-gray-900">' + catalog.escapeHtml(value) + "</dd></div>";
+  }
+
+  function renderCompare() {
+    var root = document.getElementById("compareItems");
+    if (!root) return;
+    var restore = captureActionFocus(root);
+    if (state.compare.length === 0) {
+      root.innerHTML = '<div class="text-center py-12 text-gray-500" role="status"><p class="mb-2 font-medium text-gray-800">Belum ada produk dibandingkan</p><p class="mb-4 text-sm">Pilih paling banyak 3 produk dari katalog. Jika produk sudah tidak ada, identitasnya dibuang.</p><button type="button" data-action="shop" class="min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium">Lihat produk</button></div>';
+      renderBadges();
+      restoreActionFocus(root, restore, document.getElementById("closeCompare"));
+      return;
+    }
+    root.innerHTML = '<div class="grid gap-4 md:grid-cols-3">' + state.compare.map(function (id) {
+      var product = productById(id);
+      var name = product ? product.name : "Tidak ada di katalog";
+      var price = product ? catalog.formatRupiah(product.price) : "—";
+      var category = product && product.category ? product.category : "—";
+      var description = product && product.description ? product.description : "Deskripsi tidak diisi.";
+      var picture = product ? '<div class="aspect-[4/3] bg-indigo-50">' + imageMarkup(product.image, "", "w-full h-full object-cover") + "</div>" : "";
+      return '<article class="rounded-2xl border border-indigo-100 bg-white overflow-hidden flex flex-col">' +
+        picture +
+        '<div class="p-4 flex flex-col gap-2 flex-1">' +
+          '<h3 class="font-semibold text-base leading-snug">' + catalog.escapeHtml(name) + "</h3>" +
+          '<p class="text-lg font-bold tabular-nums text-indigo-800">' + catalog.escapeHtml(price) + "</p>" +
+          '<dl>' +
+            compareField("Kategori", category) +
+            compareField("Deskripsi", description) +
+            compareField("Ketersediaan", catalog.availabilityLabel(product)) +
+          "</dl>" +
+          (product ? '<button type="button" data-action="remove-compare" data-id="' + product.id + '" class="mt-auto min-h-11 px-3 rounded-xl border border-gray-200 text-sm font-medium">Keluarkan</button>' : "") +
+        "</div>" +
+      "</article>";
+    }).join("") + "</div>";
+    bindImageFallbacks(root);
+    renderBadges();
+    restoreActionFocus(root, restore, document.getElementById("closeCompare"));
   }
 
   function renderDetail() {
@@ -473,7 +568,9 @@
           '<div><label for="detailQty" class="block text-sm font-medium mb-1">Jumlah</label><input id="detailQty" type="number" min="1" max="' + catalog.MAX_QTY + '" value="' + keepQty + '" inputmode="numeric" class="w-24 border border-gray-300 rounded-lg px-3 py-2.5 text-base" /></div>' +
           '<button type="button" data-action="add-detail-cart" data-id="' + product.id + '" class="flex-1 min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium px-4">Tambah ke keranjang</button>' +
         "</div>" +
-        '<button type="button" data-action="toggle-wishlist" data-id="' + product.id + '" class="mt-3 w-full min-h-11 rounded-lg border font-medium ' + (saved ? "border-rose-200 bg-rose-50 text-rose-700" : "border-gray-300") + '" aria-pressed="' + (saved ? "true" : "false") + '">' + (saved ? "Tersimpan di daftar simpan" : "Simpan ke daftar simpan") + "</button>" +
+        '<button type="button" data-action="toggle-wishlist" data-id="' + product.id + '" class="mt-3 w-full min-h-11 rounded-lg border font-medium ' + (saved ? "border-rose-200 bg-rose-50 text-rose-700" : "border-gray-300") + '" aria-pressed="' + (saved ? "true" : "false") + '">' + (saved ? "Tersimpan di favorit" : "Simpan ke favorit") + "</button>" +
+        '<button type="button" data-action="toggle-compare" data-id="' + product.id + '" class="mt-2 w-full min-h-11 rounded-lg border font-medium ' + (state.compare.indexOf(product.id) !== -1 ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-gray-300") + '" aria-pressed="' + (state.compare.indexOf(product.id) !== -1 ? "true" : "false") + '">' + (state.compare.indexOf(product.id) !== -1 ? "Ada di perbandingan" : "Bandingkan") + "</button>" +
+        '<p class="mt-3 text-sm text-gray-600">' + catalog.escapeHtml(catalog.availabilityLabel(product)) + "</p>" +
       "</div>" +
     "</div>" + relatedHtml;
     bindImageFallbacks(detailBody);
@@ -543,7 +640,29 @@
         if (wishButton) wishButton.focus();
       }
     }
-    announce(saved ? product.name + " dihapus dari daftar simpan." : product.name + " disimpan.");
+    announce(saved ? product.name + " dihapus dari favorit." : product.name + " disimpan ke favorit di peramban ini.");
+  }
+
+  function toggleProductCompare(id) {
+    var product = productById(id);
+    if (!product) return;
+    var detailFocused = detailBody.contains(document.activeElement);
+    var result = catalog.toggleCompare(state.compare, id);
+    state.compare = result.ids;
+    persistCompare();
+    renderCompare();
+    renderProducts();
+    renderWishlist();
+    if (state.detailId === id && state.activeModal === "detail") {
+      renderDetail();
+      if (detailFocused) {
+        var button = detailBody.querySelector('[data-action="toggle-compare"]');
+        if (button) button.focus();
+      }
+    }
+    if (result.status === "limit") announce("Perbandingan paling banyak 3 produk. Keluarkan satu untuk menambah yang lain.");
+    else if (result.status === "added") announce(product.name + " masuk perbandingan.");
+    else if (result.status === "removed") announce(product.name + " dikeluarkan dari perbandingan.");
   }
 
   function showFieldError(field, message) {
@@ -587,7 +706,9 @@
 
   function handleAction(actionEl) {
     var action = actionEl.dataset.action;
-    var id = Number(actionEl.dataset.id);
+    var id = catalog.canonicalProductId(actionEl.dataset.id);
+    var needsId = action === "open-detail" || action === "add-cart" || action === "add-detail-cart" || action === "toggle-wishlist" || action === "toggle-compare" || action === "qty-dec" || action === "qty-inc" || action === "remove-cart" || action === "remove-wishlist" || action === "remove-compare";
+    if (needsId && id == null) return;
     if (action === "open-detail") {
       state.detailId = id;
       renderDetail();
@@ -607,6 +728,20 @@
     }
     if (action === "toggle-wishlist") {
       toggleProductWishlist(id);
+      return;
+    }
+    if (action === "toggle-compare" || action === "remove-compare") {
+      toggleProductCompare(id);
+      return;
+    }
+    if (action === "clear-compare") {
+      state.compare = [];
+      persistCompare();
+      renderCompare();
+      renderProducts();
+      renderWishlist();
+      if (state.activeModal === "detail") renderDetail();
+      announce("Perbandingan dikosongkan.");
       return;
     }
     if (action === "qty-dec") {
@@ -666,12 +801,14 @@
   function init() {
     state.cart = loadCart();
     state.wishlist = loadWishlist();
+    state.compare = loadCompare();
     applyInitialFilters();
     paintStorageWarning();
     paintChrome();
     publishFilters();
     renderCart();
     renderWishlist();
+    renderCompare();
 
     searchInput.addEventListener("input", function () {
       state.filters.query = searchInput.value;
@@ -719,6 +856,9 @@
     });
     cartBtn.addEventListener("click", function () { openDrawer("cart"); });
     wishlistBtn.addEventListener("click", function () { openDrawer("wishlist"); });
+    document.getElementById("compareBtn").addEventListener("click", function () { openDrawer("compare"); });
+    document.getElementById("openCompare").addEventListener("click", function () { openDrawer("compare"); });
+    document.getElementById("closeCompare").addEventListener("click", closeDrawer);
     document.getElementById("closeCart").addEventListener("click", closeDrawer);
     document.getElementById("closeWishlist").addEventListener("click", closeDrawer);
     cartOverlay.addEventListener("click", closeDrawer);
@@ -770,6 +910,7 @@
       else if (state.activeModal === "detail") container = detailModal;
       else if (state.activeDrawer === "cart") container = cartSidebar;
       else if (state.activeDrawer === "wishlist") container = wishlistSidebar;
+      else if (state.activeDrawer === "compare") container = document.getElementById("compareSidebar");
       if (!container) return;
       var items = Array.prototype.filter.call(container.querySelectorAll("button, [href], input, select, textarea"), function (el) {
         return !el.disabled && el.tabIndex !== -1;
@@ -802,10 +943,12 @@
   function applyCatalog(list) {
     products = list;
     state.wishlist = loadWishlist();
+    state.compare = loadCompare();
     applyInitialFilters();
     publishFilters();
     renderCart();
     renderWishlist();
+    renderCompare();
   }
 
   function supabaseTerkonfigurasi() {
@@ -814,8 +957,7 @@
   }
 
   function loadStorefrontCatalog() {
-    var demoDipaksa = new URLSearchParams(window.location.search).get("demo") === "1";
-    if (supabaseTerkonfigurasi() && !demoDipaksa && !previewDraftRequested) {
+    if (supabaseTerkonfigurasi() && !demoRequested && !previewDraftRequested) {
       setCatalogSource("Menghubungkan katalog akun…");
       window.TokoKitaTerimaKatalog = function (payload) {
         var keputusan = catalog.keputusanKatalogAkun(payload);
@@ -857,7 +999,7 @@
       if (!parsed.ok) throw new Error(parsed.message);
       if (!previewDraftRequested || supabaseTerkonfigurasi()) {
         applyCatalog(parsed.products);
-        setCatalogSource(demoDipaksa
+        setCatalogSource(demoRequested
           ? "Mode demo dipilih lewat tautan. Etalase memakai catalog.json, bukan akun penjual."
           : "Mode demo: Supabase belum diisi. Etalase membaca catalog.json di situs ini, bukan draf peramban.");
         return;

@@ -6,6 +6,7 @@
   "use strict";
 
   var MAX_QTY = 99;
+  var COMPARE_LIMIT = 3;
   var PRICE_RANGE_ERROR = "Harga minimum tidak boleh lebih besar dari harga maksimum.";
   var EMPTY_RESULT_MESSAGE = "Tidak ada produk yang cocok. Coba kata kunci lain atau atur ulang filter.";
 
@@ -211,6 +212,34 @@
     if (id == null) return ids.slice();
     if (ids.indexOf(id) !== -1) return ids.filter(function (item) { return item !== id; });
     return ids.concat([id]);
+  }
+
+  function toggleCompare(ids, productId) {
+    var list = Array.isArray(ids) ? ids.slice() : [];
+    var id = canonicalProductId(productId);
+    if (id == null) return { ids: list, status: "invalid" };
+    if (list.indexOf(id) !== -1) {
+      return { ids: list.filter(function (item) { return item !== id; }), status: "removed" };
+    }
+    if (list.length >= COMPARE_LIMIT) return { ids: list, status: "limit" };
+    return { ids: list.concat([id]), status: "added" };
+  }
+
+  function parseStoredCompare(raw, knownIds) {
+    return parseStoredWishlist(raw, knownIds).slice(0, COMPARE_LIMIT);
+  }
+
+  function compareNeedsRepair(raw, ids) {
+    return wishlistNeedsRepair(raw, ids);
+  }
+
+  function availabilityLabel(product) {
+    if (!product) return "Tidak ada di katalog";
+    if (product.visible === false) return "Tidak ditampilkan";
+    if (product.contoh === true) return "Contoh, tidak dijual";
+    if (product.stock === 0) return "Habis";
+    if (typeof product.stock === "number" && product.stock > 0) return "Tersedia, " + product.stock;
+    return "Ketersediaan tidak dicatat";
   }
 
   function integerId(value) {
@@ -591,7 +620,12 @@
     totalQuantity: totalQuantity,
     totalPrice: totalPrice,
     canCheckout: canCheckout,
+    COMPARE_LIMIT: COMPARE_LIMIT,
     toggleWishlist: toggleWishlist,
+    toggleCompare: toggleCompare,
+    parseStoredCompare: parseStoredCompare,
+    compareNeedsRepair: compareNeedsRepair,
+    availabilityLabel: availabilityLabel,
     canonicalProductId: canonicalProductId,
     parseStoredCart: parseStoredCart,
     parseStoredWishlist: parseStoredWishlist,
