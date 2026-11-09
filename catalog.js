@@ -492,6 +492,8 @@
       description: description,
       visible: source.visible !== false
     };
+    var extras = productGallery({ image: image, images: source.images }).filter(function (url) { return url !== image; });
+    if (extras.length) product.images = extras;
     if (source.contoh === true) product.contoh = true;
     return { ok: Object.keys(errors).length === 0, errors: errors, value: product };
   }
@@ -599,6 +601,79 @@
     return "akun";
   }
 
+  var PAGES_ORIGIN = "https://yeyenmuhidin.github.io";
+  var PAGES_DIRECTORY = "/toko-kita-id/";
+  var GALLERY_LIMIT = 8;
+
+  function productGallery(product) {
+    var urls = [];
+    function push(url) {
+      if (urls.length >= GALLERY_LIMIT) return;
+      var safe = safeProductImage(typeof url === "string" ? url.trim() : "");
+      if (!safe || urls.indexOf(safe) !== -1) return;
+      urls.push(safe);
+    }
+    if (!product || typeof product !== "object") return urls;
+    push(product.image);
+    if (Array.isArray(product.images)) product.images.forEach(push);
+    return urls;
+  }
+
+  function productPermalink(id, options) {
+    var canonical = canonicalProductId(id);
+    if (canonical == null) return "";
+    var params = new URLSearchParams();
+    params.set("produk", String(canonical));
+    if (options && options.demo) params.set("demo", "1");
+    return PAGES_ORIGIN + PAGES_DIRECTORY + "?" + params.toString();
+  }
+
+  function whatsappShareUrl(title, permalink) {
+    var name = cleanPlainText(title).slice(0, 80);
+    if (!name || typeof permalink !== "string") return "";
+    var parsed;
+    try {
+      parsed = new URL(permalink);
+    } catch (error) {
+      return "";
+    }
+    if (parsed.origin !== PAGES_ORIGIN || parsed.pathname !== PAGES_DIRECTORY) return "";
+    if (parsed.username || parsed.password || parsed.hash) return "";
+    var id = canonicalProductId(parsed.searchParams.get("produk"));
+    if (id == null) return "";
+    var clean = productPermalink(id, { demo: parsed.searchParams.get("demo") === "1" });
+    return "https://wa.me/?text=" + encodeURIComponent(name + "\n" + clean);
+  }
+
+  function publicDetail(product, request) {
+    var req = request || {};
+    if (req.catalogError) return { status: "galat" };
+    var requested = req.id != null ? req.id : product && product.id;
+    var id = canonicalProductId(requested);
+    if (id == null) return { status: "tidak-sah" };
+    var productId = product ? canonicalProductId(product.id) : null;
+    if (!product || String(productId) !== String(id)) {
+      return { status: "tidak-ada" };
+    }
+    var privateStatus = product.status && product.status !== "disetujui" && product.contoh !== true;
+    if (product.visible === false || product.archived === true || privateStatus) {
+      return { status: "tidak-ditampilkan" };
+    }
+    var demo = product.contoh === true || req.demo === true;
+    return {
+      status: "tayang",
+      id: productId,
+      name: cleanPlainText(product.name),
+      price: typeof product.price === "number" ? product.price : null,
+      category: cleanPlainText(product.category),
+      description: cleanPlainText(product.description),
+      availability: availabilityLabel(product),
+      contoh: product.contoh === true,
+      gallery: productGallery(product),
+      permalink: productPermalink(productId, { demo: demo })
+    };
+  }
+
   return {
     MAX_QTY: MAX_QTY,
     PRICE_RANGE_ERROR: PRICE_RANGE_ERROR,
@@ -653,6 +728,10 @@
     nextProductId: nextProductId,
     upsertProduct: upsertProduct,
     deleteProduct: deleteProduct,
-    keputusanKatalogAkun: keputusanKatalogAkun
+    keputusanKatalogAkun: keputusanKatalogAkun,
+    productGallery: productGallery,
+    productPermalink: productPermalink,
+    whatsappShareUrl: whatsappShareUrl,
+    publicDetail: publicDetail
   };
 });

@@ -21,6 +21,8 @@
     .product-card.is-compared { border-color: #a5b4fc; box-shadow: 0 0 0 2px #c7d2fe; }
     body.has-compare { padding-bottom: calc(9rem + env(safe-area-inset-bottom)); }
     #compareBar { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+    #productGallery:focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
+    .gallery-thumbs button img, .gallery-thumbs button div { pointer-events: none; }
     @media (min-width: 640px) {
       body.has-compare { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
     }

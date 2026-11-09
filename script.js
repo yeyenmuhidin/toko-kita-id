@@ -18,6 +18,10 @@
   var DRAFT_KEY = "tokoKitaCatalogDraft";
   var previewDraftRequested = new URLSearchParams(window.location.search).get("pratinjau") === "draf";
   var demoRequested = new URLSearchParams(window.location.search).get("demo") === "1";
+  var requestedProductId = catalog.canonicalProductId(new URLSearchParams(window.location.search).get("produk"));
+  var historyMode = "replace";
+  var detailPushed = false;
+  var defaultTitle = document.title;
 
   function shopProducts() {
     return catalog.storefrontProducts(products);
@@ -96,6 +100,9 @@
     wishlist: [],
     compare: [],
     detailId: null,
+    detailPhoto: 0,
+    detailDismissed: false,
+    catalogFailed: false,
     activeDrawer: null,
     activeModal: null,
     storageUnavailable: false,
@@ -188,17 +195,24 @@
 
   function syncUrl() {
     var next = catalog.toCatalogSearch(state.filters);
-    if (previewDraftRequested || demoRequested) {
-      var params = new URLSearchParams(next.charAt(0) === "?" ? next.slice(1) : next);
-      if (previewDraftRequested) params.set("pratinjau", "draf");
-      if (demoRequested) params.set("demo", "1");
-      var query = params.toString();
-      next = query ? "?" + query : "";
-    }
+    var params = new URLSearchParams(next.charAt(0) === "?" ? next.slice(1) : next);
+    if (previewDraftRequested) params.set("pratinjau", "draf");
+    if (demoRequested) params.set("demo", "1");
+    var detailId = state.activeModal === "detail" && state.detailId != null
+      ? state.detailId
+      : (!state.detailDismissed ? requestedProductId : null);
+    if (detailId != null) params.set("produk", String(detailId));
+    var query = params.toString();
+    next = query ? "?" + query : "";
     var current = window.location.search || "";
-    if (current === next) return;
+    if (current === next) {
+      historyMode = "replace";
+      return;
+    }
     try {
-      window.history.replaceState(null, "", window.location.pathname + next);
+      var method = historyMode === "push" ? "pushState" : "replaceState";
+      historyMode = "replace";
+      window.history[method](null, "", window.location.pathname + next);
     } catch (error) {
       /* Beberapa peramban menolak replaceState saat file dibuka lewat file:// */
     }
@@ -259,23 +273,42 @@
     restoreFocus();
   }
 
+  function clearDetailRequest() {
+    var shouldBack = detailPushed;
+    detailPushed = false;
+    state.detailId = null;
+    state.detailPhoto = 0;
+    requestedProductId = null;
+    state.detailDismissed = true;
+    document.title = defaultTitle;
+    if (shouldBack) {
+      window.history.back();
+      return;
+    }
+    syncUrl();
+  }
+
   function closeModal(name, options) {
     var opts = options || {};
+    var wasDetail = name === "detail" && state.activeModal === "detail";
     if (state.activeModal === name) state.activeModal = null;
     paintChrome();
+    if (wasDetail && !opts.skipUrl) clearDetailRequest();
     if (opts.restore !== false) restoreFocus();
   }
 
   function closeAll(options) {
     var opts = options || {};
+    var wasDetail = state.activeModal === "detail";
     state.activeDrawer = null;
     state.activeModal = null;
     paintChrome();
+    if (wasDetail && !opts.skipUrl) clearDetailRequest();
     if (opts.restore !== false) restoreFocus();
   }
 
   function imageMarkup(url, alt, className) {
-    var safe = catalog.safeImageUrl(url);
+    var safe = catalog.safeProductImage(url);
     if (!safe) {
       return '<div class="' + className + ' bg-gray-100 flex items-center justify-center text-sm text-gray-500 text-center px-2" role="img" aria-label="Gambar tidak tersedia">Gambar tidak tersedia</div>';
     }
@@ -537,43 +570,154 @@
     restoreActionFocus(root, restore, document.getElementById("closeCompare"));
   }
 
+  function detailStatus(message) {
+    detailTitle.textContent = "Detail produk";
+    document.title = defaultTitle;
+    detailBody.innerHTML = '<p role="status" class="text-gray-700">' + catalog.escapeHtml(message) + '</p><button type="button" data-action="shop" class="mt-4 min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium">Kembali ke etalase</button>';
+  }
+
+  function galleryMarkup(view) {
+    var photos = view.gallery;
+    if (!photos.length) {
+      return '<div class="aspect-[4/3] bg-indigo-50 rounded-2xl flex items-center justify-center text-sm text-gray-600 px-4 text-center" role="img" aria-label="Gambar tidak tersedia">Gambar tidak tersedia</div>';
+    }
+    var index = state.detailPhoto;
+    if (index < 0 || index >= photos.length) index = 0;
+    state.detailPhoto = index;
+    var several = photos.length > 1;
+    var label = view.name + (several ? ", foto " + (index + 1) + " dari " + photos.length : "");
+    var controls = "";
+    if (several) {
+      controls = '<div class="mt-3 flex items-center gap-2">' +
+        '<button type="button" data-action="gallery-prev" class="min-h-11 min-w-11 rounded-xl border border-gray-200 bg-white font-medium" aria-label="Foto sebelumnya">Sebelumnya</button>' +
+        '<button type="button" data-action="gallery-next" class="min-h-11 min-w-11 rounded-xl border border-gray-200 bg-white font-medium" aria-label="Foto berikutnya">Berikutnya</button>' +
+        '<p class="text-sm text-gray-600" aria-live="polite">Foto ' + (index + 1) + " dari " + photos.length + "</p>" +
+      "</div>" +
+      '<div class="gallery-thumbs mt-3 flex gap-2 overflow-x-auto" role="group" aria-label="Pilih foto">' +
+        photos.map(function (url, photoIndex) {
+          var current = photoIndex === index;
+          return '<button type="button" data-action="gallery-go" data-index="' + photoIndex + '" class="shrink-0 h-16 w-16 rounded-xl overflow-hidden border ' + (current ? "border-indigo-600 ring-2 ring-indigo-200" : "border-gray-200") + '" aria-label="Tampilkan foto ' + (photoIndex + 1) + " dari " + photos.length + '" aria-current="' + (current ? "true" : "false") + '">' +
+            imageMarkup(url, "", "h-16 w-16 object-cover") +
+          "</button>";
+        }).join("") +
+      "</div>";
+    }
+    return '<div id="productGallery" class="min-w-0" role="region" aria-label="Galeri foto" tabindex="0">' +
+      '<div class="aspect-[4/3] bg-indigo-50 rounded-2xl overflow-hidden">' +
+        imageMarkup(photos[index], label, "w-full h-full object-cover") +
+      "</div>" +
+      controls +
+    "</div>";
+  }
+
+  function shareMarkup(view) {
+    var share = catalog.whatsappShareUrl(view.name, view.permalink);
+    if (!share) return "";
+    return '<div class="mt-5 space-y-2">' +
+      '<a href="' + catalog.escapeHtml(share) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center min-h-11 w-full rounded-xl bg-green-700 px-4 font-medium text-white">Bagikan lewat WhatsApp</a>' +
+      '<div class="flex gap-2">' +
+        '<label for="detailPermalink" class="sr-only">Tautan produk</label>' +
+        '<input id="detailPermalink" readonly value="' + catalog.escapeHtml(view.permalink) + '" class="min-w-0 flex-1 min-h-11 rounded-xl border border-gray-300 px-3 text-sm">' +
+        '<button type="button" data-action="copy-link" class="shrink-0 min-h-11 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-sm font-medium text-indigo-800">Salin tautan</button>' +
+      "</div>" +
+      '<p class="text-sm text-gray-600">WhatsApp hanya membuka pesan untuk Anda kirim sendiri. Tidak ada nomor penerima yang dikumpulkan.</p>' +
+    "</div>";
+  }
+
   function renderDetail() {
     var product = productById(state.detailId);
-    if (!product) {
-      detailBody.innerHTML = '<p role="status">Produk tidak ditemukan di katalog demo.</p>';
-      detailTitle.textContent = "Detail produk";
+    var view = catalog.publicDetail(product, {
+      id: state.detailId,
+      demo: demoRequested,
+      catalogError: state.catalogFailed
+    });
+    if (view.status === "galat") {
+      detailStatus("Katalog tidak dapat dimuat. Detail produk tidak ditampilkan, dan mode demo tidak dipakai otomatis.");
       return;
     }
-    var saved = state.wishlist.indexOf(product.id) !== -1;
+    if (view.status === "tidak-sah" || view.status === "tidak-ada") {
+      detailStatus("Produk tidak ditemukan di katalog yang sedang dimuat.");
+      return;
+    }
+    if (view.status !== "tayang") {
+      detailStatus("Produk ini tidak ditampilkan.");
+      return;
+    }
+    var saved = state.wishlist.indexOf(view.id) !== -1;
+    var compared = state.compare.indexOf(view.id) !== -1;
     var currentDetail = detailBody.querySelector("[data-detail-id]");
-    var keepQty = currentDetail && Number(currentDetail.getAttribute("data-detail-id")) === product.id
+    var keepQty = currentDetail && String(currentDetail.getAttribute("data-detail-id")) === String(view.id)
       ? catalog.clampQuantity((document.getElementById("detailQty") || {}).value)
       : 1;
     var related = catalog.relatedProducts(shopProducts(), product);
-    var relatedHtml = related.length === 0 ? "" : '<section class="mt-8"><h3 class="font-semibold mb-3">Produk lain di kategori ' + catalog.escapeHtml(product.category) + '</h3><ul class="grid gap-2">' + related.map(function (item) {
-      return '<li><button type="button" data-action="open-detail" data-id="' + item.id + '" class="w-full text-left min-h-11 rounded-lg border border-gray-200 px-3 py-2 hover:border-indigo-400"><span class="font-medium">' + catalog.escapeHtml(item.name) + '</span><span class="block text-sm text-indigo-700">' + catalog.formatRupiah(item.price) + "</span></button></li>";
+    var relatedHtml = related.length === 0 ? "" : '<section class="mt-8"><h3 class="font-semibold mb-3">Produk lain di kategori ' + catalog.escapeHtml(view.category) + '</h3><ul class="grid gap-2">' + related.map(function (item) {
+      return '<li><button type="button" data-action="open-detail" data-id="' + item.id + '" class="w-full text-left min-h-11 rounded-xl border border-gray-200 px-3 py-2 hover:border-indigo-400"><span class="font-medium">' + catalog.escapeHtml(item.name) + '</span><span class="block text-sm text-indigo-700">' + catalog.formatRupiah(item.price) + "</span></button></li>";
     }).join("") + "</ul></section>";
-    detailTitle.textContent = product.name;
-    detailBody.innerHTML = '<div data-detail-id="' + product.id + '" class="grid md:grid-cols-2 gap-6">' +
-      '<div class="relative min-h-64 bg-gray-100 rounded-xl overflow-hidden">' + imageMarkup(product.image, product.name, "w-full h-full object-cover min-h-64") + "</div>" +
-      '<div>' +
-        '<button type="button" data-action="set-category" data-category="' + catalog.escapeHtml(product.category) + '" class="text-sm font-medium text-indigo-700 underline">' + catalog.escapeHtml(product.category) + "</button>" +
-        '<p class="text-2xl font-bold text-indigo-700 mt-2">' + catalog.formatRupiah(product.price) + "</p>" +
-        '<dl class="mt-4 space-y-2 text-sm">' +
-          '<div class="flex justify-between gap-4 border-b pb-2"><dt>Kode katalog demo</dt><dd class="font-medium">' + catalog.catalogCode(product.id) + "</dd></div>" +
-          '<div><dt class="font-medium mb-1">Deskripsi</dt><dd class="text-gray-700">' + catalog.escapeHtml(product.description) + "</dd></div>" +
+    detailTitle.textContent = view.name;
+    document.title = view.name + " — Toko Kita ID";
+    detailBody.innerHTML = '<div data-detail-id="' + catalog.escapeHtml(view.id) + '" class="grid md:grid-cols-2 gap-6">' +
+      galleryMarkup(view) +
+      '<div class="min-w-0">' +
+        '<button type="button" data-action="set-category" data-category="' + catalog.escapeHtml(view.category) + '" class="text-sm font-semibold uppercase tracking-wide text-indigo-700">' + catalog.escapeHtml(view.category) + "</button>" +
+        '<p class="text-2xl font-bold tabular-nums text-indigo-800 mt-2">' + (view.price == null ? "Harga tidak tercatat" : catalog.formatRupiah(view.price)) + "</p>" +
+        '<p class="mt-2 text-sm text-gray-700">' + catalog.escapeHtml(view.availability) + "</p>" +
+        '<dl class="mt-4 space-y-3 text-sm">' +
+          '<div class="border-b border-gray-100 pb-2"><dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Kode katalog</dt><dd class="mt-1 font-medium">' + catalog.escapeHtml(catalog.catalogCode(view.id)) + "</dd></div>" +
+          '<div><dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Deskripsi</dt><dd class="mt-1 text-gray-800 leading-relaxed">' + catalog.escapeHtml(view.description) + "</dd></div>" +
         "</dl>" +
-        '<p class="mt-4 text-sm text-gray-600">Ulasan pembeli dan angka penjualan tidak ditampilkan karena tidak ada data. Stok tidak dilacak. Kode di atas hanya penanda katalog contoh.</p>' +
+        '<p class="mt-4 text-sm text-gray-600">Yang ditampilkan hanya data katalog yang ada. Tidak ada ulasan, angka penjualan, atau potongan harga.</p>' +
         '<div class="mt-5 flex items-end gap-3">' +
-          '<div><label for="detailQty" class="block text-sm font-medium mb-1">Jumlah</label><input id="detailQty" type="number" min="1" max="' + catalog.MAX_QTY + '" value="' + keepQty + '" inputmode="numeric" class="w-24 border border-gray-300 rounded-lg px-3 py-2.5 text-base" /></div>' +
-          '<button type="button" data-action="add-detail-cart" data-id="' + product.id + '" class="flex-1 min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium px-4">Tambah ke keranjang</button>' +
+          '<div><label for="detailQty" class="block text-sm font-medium mb-1">Jumlah</label><input id="detailQty" type="number" min="1" max="' + catalog.MAX_QTY + '" value="' + keepQty + '" inputmode="numeric" class="w-24 border border-gray-300 rounded-xl px-3 py-2.5 text-base" /></div>' +
+          '<button type="button" data-action="add-detail-cart" data-id="' + view.id + '" class="flex-1 min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium px-4">Tambah ke keranjang</button>' +
         "</div>" +
-        '<button type="button" data-action="toggle-wishlist" data-id="' + product.id + '" class="mt-3 w-full min-h-11 rounded-lg border font-medium ' + (saved ? "border-rose-200 bg-rose-50 text-rose-700" : "border-gray-300") + '" aria-pressed="' + (saved ? "true" : "false") + '">' + (saved ? "Tersimpan di favorit" : "Simpan ke favorit") + "</button>" +
-        '<button type="button" data-action="toggle-compare" data-id="' + product.id + '" class="mt-2 w-full min-h-11 rounded-lg border font-medium ' + (state.compare.indexOf(product.id) !== -1 ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-gray-300") + '" aria-pressed="' + (state.compare.indexOf(product.id) !== -1 ? "true" : "false") + '">' + (state.compare.indexOf(product.id) !== -1 ? "Ada di perbandingan" : "Bandingkan") + "</button>" +
-        '<p class="mt-3 text-sm text-gray-600">' + catalog.escapeHtml(catalog.availabilityLabel(product)) + "</p>" +
+        '<div class="mt-3 grid grid-cols-2 gap-2">' +
+          '<button type="button" data-action="toggle-wishlist" data-id="' + view.id + '" class="min-h-11 rounded-xl border font-medium ' + (saved ? "border-rose-200 bg-rose-50 text-rose-700" : "border-gray-200") + '" aria-pressed="' + (saved ? "true" : "false") + '">' + (saved ? "Favorit" : "Simpan") + "</button>" +
+          '<button type="button" data-action="toggle-compare" data-id="' + view.id + '" class="min-h-11 rounded-xl border font-medium ' + (compared ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-gray-200") + '" aria-pressed="' + (compared ? "true" : "false") + '">' + (compared ? "Dipilih" : "Bandingkan") + "</button>" +
+        "</div>" +
+        shareMarkup(view) +
       "</div>" +
     "</div>" + relatedHtml;
     bindImageFallbacks(detailBody);
+  }
+
+  function showDetail(id, push) {
+    if (String(state.detailId) !== String(id)) state.detailPhoto = 0;
+    state.detailId = id;
+    requestedProductId = id;
+    state.detailDismissed = false;
+    renderDetail();
+    if (state.activeModal !== "detail") openModal("detail", { preserveFocusMemory: Boolean(state.activeDrawer || state.activeModal) });
+    else detailTitle.focus();
+    var before = window.location.search || "";
+    if (push) historyMode = "push";
+    syncUrl();
+    if (push && (window.location.search || "") !== before) detailPushed = true;
+  }
+
+  function stepGallery(delta) {
+    var product = productById(state.detailId);
+    var photos = catalog.productGallery(product);
+    if (photos.length < 2) return;
+    var next = state.detailPhoto + delta;
+    state.detailPhoto = (next + photos.length) % photos.length;
+    renderDetail();
+    var control = detailBody.querySelector(delta < 0 ? '[data-action="gallery-prev"]' : '[data-action="gallery-next"]');
+    if (control) control.focus();
+  }
+
+  function copyDetailLink() {
+    var input = document.getElementById("detailPermalink");
+    var value = input ? input.value : "";
+    function ready(copied) {
+      if (input) input.focus();
+      if (input && input.select) input.select();
+      announce(copied ? "Tautan produk disalin." : "Tautan produk siap disalin.");
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(function () { ready(true); }, function () { ready(false); });
+      return;
+    }
+    ready(false);
   }
 
   function renderSuccess() {
@@ -710,11 +854,30 @@
     var needsId = action === "open-detail" || action === "add-cart" || action === "add-detail-cart" || action === "toggle-wishlist" || action === "toggle-compare" || action === "qty-dec" || action === "qty-inc" || action === "remove-cart" || action === "remove-wishlist" || action === "remove-compare";
     if (needsId && id == null) return;
     if (action === "open-detail") {
-      state.detailId = id;
-      renderDetail();
+      showDetail(id, true);
       detailModal.scrollTop = 0;
-      if (state.activeModal === "detail") detailTitle.focus();
-      else openModal("detail", { preserveFocusMemory: Boolean(state.activeDrawer || state.activeModal) });
+      return;
+    }
+    if (action === "gallery-prev") {
+      stepGallery(-1);
+      return;
+    }
+    if (action === "gallery-next") {
+      stepGallery(1);
+      return;
+    }
+    if (action === "gallery-go") {
+      var photoIndex = Number(actionEl.dataset.index);
+      var count = catalog.productGallery(productById(state.detailId)).length;
+      if (!Number.isInteger(photoIndex) || photoIndex < 0 || photoIndex >= count) return;
+      state.detailPhoto = photoIndex;
+      renderDetail();
+      var thumb = detailBody.querySelector('[data-action="gallery-go"][data-index="' + photoIndex + '"]');
+      if (thumb) thumb.focus();
+      return;
+    }
+    if (action === "copy-link") {
+      copyDetailLink();
       return;
     }
     if (action === "add-cart") {
@@ -863,6 +1026,24 @@
     document.getElementById("closeWishlist").addEventListener("click", closeDrawer);
     cartOverlay.addEventListener("click", closeDrawer);
     document.getElementById("closeDetail").addEventListener("click", function () { closeModal("detail"); });
+    window.addEventListener("popstate", function () {
+      detailPushed = false;
+      var id = catalog.canonicalProductId(new URLSearchParams(window.location.search).get("produk"));
+      if (id == null) {
+        state.detailId = null;
+        requestedProductId = null;
+        state.detailDismissed = true;
+        document.title = defaultTitle;
+        if (state.activeModal === "detail") closeModal("detail", { restore: false, skipUrl: true });
+        return;
+      }
+      requestedProductId = id;
+      state.detailDismissed = false;
+      state.detailId = id;
+      state.detailPhoto = 0;
+      renderDetail();
+      if (state.activeModal !== "detail") openModal("detail", { preserveFocusMemory: true });
+    });
     detailModal.addEventListener("click", function (event) {
       if (event.target === detailModal) closeModal("detail");
     });
@@ -901,6 +1082,14 @@
         else if (state.activeModal === "checkout") closeModal("checkout");
         else if (state.activeModal === "detail") closeModal("detail");
         else if (state.activeDrawer) closeDrawer();
+        return;
+      }
+      if (state.activeModal === "detail" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        var typing = event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName);
+        if (!typing && catalog.productGallery(productById(state.detailId)).length > 1) {
+          event.preventDefault();
+          stepGallery(event.key === "ArrowLeft" ? -1 : 1);
+        }
         return;
       }
       if (event.key !== "Tab") return;
@@ -949,6 +1138,7 @@
     renderCart();
     renderWishlist();
     renderCompare();
+    if (requestedProductId != null) showDetail(requestedProductId, false);
   }
 
   function supabaseTerkonfigurasi() {
@@ -968,6 +1158,8 @@
           catalogError.textContent = pesan;
           grid.innerHTML = "";
           grid.setAttribute("aria-busy", "false");
+          state.catalogFailed = true;
+          if (requestedProductId != null) showDetail(requestedProductId, false);
           return;
         }
         if (keputusan === "demo-kosong") {
