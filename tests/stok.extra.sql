@@ -42,6 +42,7 @@ begin
     update public.products set stock = 9 where name = 'Produk A';
     raise exception 'UJI GAGAL: ubah stok langsung';
   exception
+    when insufficient_privilege then null;
     when others then
       if sqlerrm not like '%tercatat%' and sqlerrm not like '%UJI GAGAL%' then raise; end if;
   end;

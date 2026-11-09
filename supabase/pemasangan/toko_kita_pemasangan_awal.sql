@@ -657,7 +657,8 @@ CREATE FUNCTION public.jaga_order_item() RETURNS trigger
     AS $$
 begin
   if tg_op = 'UPDATE' then
-    if new.order_id is distinct from old.order_id
+    if new.id is distinct from old.id
+      or new.order_id is distinct from old.order_id
       or new.seller_id is distinct from old.seller_id
       or new.product_id is distinct from old.product_id
       or new.product_name is distinct from old.product_name
@@ -701,6 +702,9 @@ begin
       raise exception 'Perubahan admin harus lewat tindakan tercatat';
     end if;
   else
+    if new.id is distinct from old.id then
+      raise exception 'Identitas produk tidak dapat diubah';
+    end if;
     if new.seller_id is distinct from old.seller_id then
       raise exception 'Pemilik produk tidak dapat diubah';
     end if;
@@ -727,6 +731,20 @@ begin
   end if;
     if tg_op = 'UPDATE' and new.stock is distinct from old.stock and current_setting('app.stok_tercatat', true) is distinct from '1' then
     raise exception 'Stok hanya dapat diubah lewat penyesuaian yang tercatat';
+  end if;
+  if tg_op = 'UPDATE' and new.stock_version is distinct from old.stock_version and current_setting('app.stok_tercatat', true) is distinct from '1' then
+    raise exception 'Versi stok hanya dapat diubah lewat penyesuaian yang tercatat';
+  end if;
+  if tg_op = 'UPDATE' and new.low_stock_threshold is distinct from old.low_stock_threshold
+     and current_setting('app.stok_tercatat', true) is distinct from '1'
+     and current_setting('app.kelola_admin', true) is distinct from '1' then
+    raise exception 'Ambang stok hanya dapat diubah lewat penyesuaian yang tercatat';
+  end if;
+  if tg_op = 'INSERT' and new.stock_version is distinct from 0 and current_setting('app.stok_tercatat', true) is distinct from '1' then
+    new.stock_version := 0;
+  end if;
+  if tg_op = 'INSERT' and new.low_stock_threshold is not null and not admin_berlaku then
+    new.low_stock_threshold := null;
   end if;
     if new.stock is not null and new.stock < 0 then
     raise exception 'Stok tidak boleh negatif';
@@ -1573,333 +1591,123 @@ CREATE POLICY snap_pembeli ON public.order_checkout FOR SELECT TO authenticated 
 CREATE POLICY tarif_baca ON public.shipping_rates FOR SELECT TO authenticated USING ((active OR private.is_admin()));
 
 
---
--- Name: SCHEMA private; Type: ACL; Schema: -; Owner: -
---
-
-GRANT USAGE ON SCHEMA private TO authenticated;
-GRANT USAGE ON SCHEMA private TO supabase_auth_admin;
-GRANT USAGE ON SCHEMA private TO service_role;
-
-
---
--- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
---
-
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT USAGE ON SCHEMA public TO authenticated;
-
-
---
--- Name: FUNCTION angka_stok(p_id uuid); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.angka_stok(p_id uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.angka_stok(p_id uuid) TO authenticated;
-
-
---
--- Name: FUNCTION catat_stok_awal(); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.catat_stok_awal() FROM PUBLIC;
-
-
---
--- Name: FUNCTION handle_new_user(); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.handle_new_user() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.handle_new_user() TO supabase_auth_admin;
-
-
---
--- Name: FUNCTION internal_buat_pesanan(p_buyer uuid, p_idempotency uuid, p_items jsonb, p_shipping_rate uuid, p_shipping_note text); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.internal_buat_pesanan(p_buyer uuid, p_idempotency uuid, p_items jsonb, p_shipping_rate uuid, p_shipping_note text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.internal_buat_pesanan(p_buyer uuid, p_idempotency uuid, p_items jsonb, p_shipping_rate uuid, p_shipping_note text) TO service_role;
-
-
---
--- Name: FUNCTION internal_catat_pembayaran(p_gateway_order_id text, p_gross_amount numeric, p_currency text, p_transaction_status text, p_fraud_status text, p_transaction_id text, p_signature_ok boolean); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.internal_catat_pembayaran(p_gateway_order_id text, p_gross_amount numeric, p_currency text, p_transaction_status text, p_fraud_status text, p_transaction_id text, p_signature_ok boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.internal_catat_pembayaran(p_gateway_order_id text, p_gross_amount numeric, p_currency text, p_transaction_status text, p_fraud_status text, p_transaction_id text, p_signature_ok boolean) TO service_role;
-
-
---
--- Name: FUNCTION internal_simpan_snap(p_order uuid, p_url text); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.internal_simpan_snap(p_order uuid, p_url text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.internal_simpan_snap(p_order uuid, p_url text) TO service_role;
-
-
---
--- Name: FUNCTION is_admin(); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.is_admin() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated;
-
-
---
--- Name: FUNCTION kelola_produk_admin(p_aksi text, p_id uuid, p_name text, p_price integer, p_stock integer, p_description text, p_category text, p_image_path text, p_status text, p_archived boolean); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.kelola_produk_admin(p_aksi text, p_id uuid, p_name text, p_price integer, p_stock integer, p_description text, p_category text, p_image_path text, p_status text, p_archived boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.kelola_produk_admin(p_aksi text, p_id uuid, p_name text, p_price integer, p_stock integer, p_description text, p_category text, p_image_path text, p_status text, p_archived boolean) TO authenticated;
-
-
---
--- Name: FUNCTION pesanan_sudah_dibayar(p_order uuid); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.pesanan_sudah_dibayar(p_order uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.pesanan_sudah_dibayar(p_order uuid) TO authenticated;
-
-
---
--- Name: FUNCTION pesanan_terlihat(p_order uuid); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.pesanan_terlihat(p_order uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.pesanan_terlihat(p_order uuid) TO authenticated;
-
-
---
--- Name: FUNCTION ringkasan_pesanan_penjual(p_order uuid); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.ringkasan_pesanan_penjual(p_order uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.ringkasan_pesanan_penjual(p_order uuid) TO authenticated;
-
-
---
--- Name: FUNCTION sesuaikan_stok_admin(p_id uuid, p_on_hand integer, p_reason text, p_expected_version integer, p_idempotency uuid, p_low_stock integer); Type: ACL; Schema: private; Owner: -
---
-
-REVOKE ALL ON FUNCTION private.sesuaikan_stok_admin(p_id uuid, p_on_hand integer, p_reason text, p_expected_version integer, p_idempotency uuid, p_low_stock integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION private.sesuaikan_stok_admin(p_id uuid, p_on_hand integer, p_reason text, p_expected_version integer, p_idempotency uuid, p_low_stock integer) TO authenticated;
-
-
---
--- Name: FUNCTION catat_notifikasi_pesanan(); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.catat_notifikasi_pesanan() FROM PUBLIC;
-
-
---
--- Name: FUNCTION internal_buat_pesanan(p_buyer uuid, p_idempotency uuid, p_items jsonb, p_shipping_rate uuid, p_shipping_note text); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.internal_buat_pesanan(p_buyer uuid, p_idempotency uuid, p_items jsonb, p_shipping_rate uuid, p_shipping_note text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.internal_buat_pesanan(p_buyer uuid, p_idempotency uuid, p_items jsonb, p_shipping_rate uuid, p_shipping_note text) TO service_role;
-
-
---
--- Name: FUNCTION internal_catat_pembayaran(p_gateway_order_id text, p_gross_amount numeric, p_currency text, p_transaction_status text, p_fraud_status text, p_transaction_id text, p_signature_ok boolean); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.internal_catat_pembayaran(p_gateway_order_id text, p_gross_amount numeric, p_currency text, p_transaction_status text, p_fraud_status text, p_transaction_id text, p_signature_ok boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.internal_catat_pembayaran(p_gateway_order_id text, p_gross_amount numeric, p_currency text, p_transaction_status text, p_fraud_status text, p_transaction_id text, p_signature_ok boolean) TO service_role;
-
-
---
--- Name: FUNCTION internal_simpan_snap(p_order uuid, p_url text); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.internal_simpan_snap(p_order uuid, p_url text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.internal_simpan_snap(p_order uuid, p_url text) TO service_role;
-
-
---
--- Name: FUNCTION jaga_order_item(); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.jaga_order_item() FROM PUBLIC;
-
-
---
--- Name: FUNCTION jaga_produk(); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.jaga_produk() FROM PUBLIC;
-
-
---
--- Name: FUNCTION jaga_profil(); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.jaga_profil() FROM PUBLIC;
-
-
---
--- Name: FUNCTION kelola_produk_admin(p_aksi text, p_id uuid, p_name text, p_price integer, p_stock integer, p_description text, p_category text, p_image_path text, p_status text, p_archived boolean); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.kelola_produk_admin(p_aksi text, p_id uuid, p_name text, p_price integer, p_stock integer, p_description text, p_category text, p_image_path text, p_status text, p_archived boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.kelola_produk_admin(p_aksi text, p_id uuid, p_name text, p_price integer, p_stock integer, p_description text, p_category text, p_image_path text, p_status text, p_archived boolean) TO authenticated;
-
-
---
--- Name: FUNCTION sesuaikan_stok_admin(p_id uuid, p_on_hand integer, p_reason text, p_expected_version integer, p_idempotency uuid, p_low_stock integer); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.sesuaikan_stok_admin(p_id uuid, p_on_hand integer, p_reason text, p_expected_version integer, p_idempotency uuid, p_low_stock integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.sesuaikan_stok_admin(p_id uuid, p_on_hand integer, p_reason text, p_expected_version integer, p_idempotency uuid, p_low_stock integer) TO authenticated;
-
-
---
--- Name: FUNCTION set_updated_at(); Type: ACL; Schema: public; Owner: -
---
-
-REVOKE ALL ON FUNCTION public.set_updated_at() FROM PUBLIC;
-
-
---
--- Name: TABLE admin_audit; Type: ACL; Schema: public; Owner: -
---
+-- Hak yang diwarisi default Supabase dibersihkan pada objek berkas ini,
+-- lalu hanya izin yang dimaksud yang dikembalikan. Default global tidak diubah.
+
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated, service_role, supabase_auth_admin;
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+
+DO $acl$
+DECLARE
+  objek text;
+BEGIN
+  FOREACH objek IN ARRAY ARRAY[
+    'public.admin_audit',
+    'public.admin_notifications',
+    'public.inventory_movements',
+    'public.order_checkout',
+    'public.order_events',
+    'public.order_items',
+    'public.orders',
+    'public.products',
+    'public.profiles',
+    'public.shipping_rates',
+    'public.baris_pesanan_penjual',
+    'public.etalase',
+    'public.posisi_stok'
+  ]
+  LOOP
+    EXECUTE format('REVOKE ALL ON TABLE %s FROM PUBLIC, anon, authenticated, service_role', objek);
+  END LOOP;
+END
+$acl$;
+
+DO $acl$
+DECLARE
+  fn text;
+BEGIN
+  FOREACH fn IN ARRAY ARRAY[
+    'private.angka_stok(uuid)',
+    'private.catat_stok_awal()',
+    'private.handle_new_user()',
+    'private.internal_buat_pesanan(uuid,uuid,jsonb,uuid,text)',
+    'private.internal_catat_pembayaran(text,numeric,text,text,text,text,boolean)',
+    'private.internal_simpan_snap(uuid,text)',
+    'private.is_admin()',
+    'private.kelola_produk_admin(text,uuid,text,integer,integer,text,text,text,text,boolean)',
+    'private.pesanan_sudah_dibayar(uuid)',
+    'private.pesanan_terlihat(uuid)',
+    'private.ringkasan_pesanan_penjual(uuid)',
+    'private.sesuaikan_stok_admin(uuid,integer,text,integer,uuid,integer)',
+    'public.catat_notifikasi_pesanan()',
+    'public.internal_buat_pesanan(uuid,uuid,jsonb,uuid,text)',
+    'public.internal_catat_pembayaran(text,numeric,text,text,text,text,boolean)',
+    'public.internal_simpan_snap(uuid,text)',
+    'public.jaga_order_item()',
+    'public.jaga_produk()',
+    'public.jaga_profil()',
+    'public.kelola_produk_admin(text,uuid,text,integer,integer,text,text,text,text,boolean)',
+    'public.sesuaikan_stok_admin(uuid,integer,text,integer,uuid,integer)',
+    'public.set_updated_at()'
+  ]
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role', fn);
+  END LOOP;
+END
+$acl$;
+
+GRANT SELECT ON TABLE public.etalase TO anon, authenticated;
+GRANT SELECT ON TABLE public.products TO anon, authenticated;
+GRANT SELECT ON TABLE public.profiles TO anon, authenticated;
 
 GRANT SELECT ON TABLE public.admin_audit TO authenticated;
-
-
---
--- Name: TABLE admin_notifications; Type: ACL; Schema: public; Owner: -
---
-
 GRANT SELECT ON TABLE public.admin_notifications TO authenticated;
-
-
---
--- Name: COLUMN admin_notifications.read_at; Type: ACL; Schema: public; Owner: -
---
-
-GRANT UPDATE(read_at) ON TABLE public.admin_notifications TO authenticated;
-
-
---
--- Name: TABLE order_items; Type: ACL; Schema: public; Owner: -
---
-
-GRANT SELECT ON TABLE public.order_items TO authenticated;
-
-
---
--- Name: COLUMN order_items.fulfillment_status; Type: ACL; Schema: public; Owner: -
---
-
-GRANT UPDATE(fulfillment_status) ON TABLE public.order_items TO authenticated;
-
-
---
--- Name: TABLE baris_pesanan_penjual; Type: ACL; Schema: public; Owner: -
---
-
-GRANT SELECT ON TABLE public.baris_pesanan_penjual TO authenticated;
-
-
---
--- Name: TABLE products; Type: ACL; Schema: public; Owner: -
---
-
-GRANT SELECT ON TABLE public.products TO anon;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.products TO authenticated;
-
-
---
--- Name: TABLE profiles; Type: ACL; Schema: public; Owner: -
---
-
-GRANT SELECT ON TABLE public.profiles TO anon;
-GRANT SELECT ON TABLE public.profiles TO authenticated;
-
-
---
--- Name: COLUMN profiles.role; Type: ACL; Schema: public; Owner: -
---
-
-GRANT UPDATE(role) ON TABLE public.profiles TO authenticated;
-
-
---
--- Name: COLUMN profiles.display_name; Type: ACL; Schema: public; Owner: -
---
-
-GRANT UPDATE(display_name) ON TABLE public.profiles TO authenticated;
-
-
---
--- Name: COLUMN profiles.shop_name; Type: ACL; Schema: public; Owner: -
---
-
-GRANT UPDATE(shop_name) ON TABLE public.profiles TO authenticated;
-
-
---
--- Name: COLUMN profiles.bio; Type: ACL; Schema: public; Owner: -
---
-
-GRANT UPDATE(bio) ON TABLE public.profiles TO authenticated;
-
-
---
--- Name: TABLE etalase; Type: ACL; Schema: public; Owner: -
---
-
-GRANT SELECT ON TABLE public.etalase TO anon;
-GRANT SELECT ON TABLE public.etalase TO authenticated;
-
-
---
--- Name: TABLE inventory_movements; Type: ACL; Schema: public; Owner: -
---
-
+GRANT UPDATE (read_at) ON TABLE public.admin_notifications TO authenticated;
 GRANT SELECT ON TABLE public.inventory_movements TO authenticated;
-
-
---
--- Name: TABLE order_checkout; Type: ACL; Schema: public; Owner: -
---
-
 GRANT SELECT ON TABLE public.order_checkout TO authenticated;
-
-
---
--- Name: TABLE order_events; Type: ACL; Schema: public; Owner: -
---
-
 GRANT SELECT ON TABLE public.order_events TO authenticated;
-
-
---
--- Name: TABLE orders; Type: ACL; Schema: public; Owner: -
---
-
+GRANT SELECT ON TABLE public.order_items TO authenticated;
+GRANT UPDATE (fulfillment_status) ON TABLE public.order_items TO authenticated;
 GRANT SELECT ON TABLE public.orders TO authenticated;
-
-
---
--- Name: TABLE posisi_stok; Type: ACL; Schema: public; Owner: -
---
-
 GRANT SELECT ON TABLE public.posisi_stok TO authenticated;
-
-
---
--- Name: TABLE shipping_rates; Type: ACL; Schema: public; Owner: -
---
-
+GRANT SELECT ON TABLE public.baris_pesanan_penjual TO authenticated;
 GRANT SELECT ON TABLE public.shipping_rates TO authenticated;
+GRANT UPDATE (display_name, shop_name, bio, role) ON TABLE public.profiles TO authenticated;
+GRANT INSERT (seller_id, name, price, description, category, image_path, status) ON TABLE public.products TO authenticated;
+GRANT UPDATE (name, price, description, category, image_path, status) ON TABLE public.products TO authenticated;
+GRANT DELETE ON TABLE public.products TO authenticated;
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+  public.admin_audit,
+  public.admin_notifications,
+  public.inventory_movements,
+  public.order_checkout,
+  public.order_events,
+  public.order_items,
+  public.orders,
+  public.products,
+  public.profiles,
+  public.shipping_rates
+TO service_role;
+GRANT SELECT ON TABLE public.baris_pesanan_penjual, public.etalase, public.posisi_stok TO service_role;
 
---
--- PostgreSQL database dump complete
---
-
+GRANT EXECUTE ON FUNCTION private.angka_stok(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.handle_new_user() TO supabase_auth_admin;
+GRANT EXECUTE ON FUNCTION private.internal_buat_pesanan(uuid,uuid,jsonb,uuid,text) TO service_role;
+GRANT EXECUTE ON FUNCTION private.internal_catat_pembayaran(text,numeric,text,text,text,text,boolean) TO service_role;
+GRANT EXECUTE ON FUNCTION private.internal_simpan_snap(uuid,text) TO service_role;
+GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION private.kelola_produk_admin(text,uuid,text,integer,integer,text,text,text,text,boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.pesanan_sudah_dibayar(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.pesanan_terlihat(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.ringkasan_pesanan_penjual(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.sesuaikan_stok_admin(uuid,integer,text,integer,uuid,integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.internal_buat_pesanan(uuid,uuid,jsonb,uuid,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.internal_catat_pembayaran(text,numeric,text,text,text,text,boolean) TO service_role;
+GRANT EXECUTE ON FUNCTION public.internal_simpan_snap(uuid,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.kelola_produk_admin(text,uuid,text,integer,integer,text,text,text,text,boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sesuaikan_stok_admin(uuid,integer,text,integer,uuid,integer) TO authenticated;
 
 
 CREATE TRIGGER on_auth_user_created

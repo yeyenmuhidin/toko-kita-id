@@ -108,13 +108,13 @@ if (!konfigurasi.ok) {
       }
     }
     var data = {
-      seller_id: userId,
       name: document.getElementById("productName").value.trim(),
       price: harga,
       category: document.getElementById("productCategory").value.trim(),
       description: document.getElementById("productDescription").value.trim(),
       image_path: path
     };
+    if (!id) data.seller_id = userId;
     var id = document.getElementById("productId").value;
     var hasil = id
       ? await supabase.from("products").update(data).eq("id", id)
