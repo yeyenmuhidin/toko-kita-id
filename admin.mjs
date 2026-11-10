@@ -1,5 +1,5 @@
-import { createClient } from "./vendor/supabase-js.mjs";
 import { konfigurasiAman } from "./akun.mjs";
+import { klienToko } from "./supabase-klien.mjs";
 import { gambarManajemen, gambarStok, indikatorStok } from "./admin-ui.mjs";
 
 var banner = document.getElementById("adminBanner");
@@ -12,7 +12,7 @@ if (!konfigurasi.ok) {
   document.getElementById("antrean").textContent = "Daftar produk tidak dimuat.";
   document.getElementById("daftarStok").textContent = "Posisi stok tidak dimuat. Tidak ada angka yang dikirim ke server.";
 } else {
-  var supabase = createClient(konfigurasi.url, konfigurasi.publishableKey);
+  var supabase = klienToko(window.TOKO_KITA_SUPABASE);
   async function muat() {
     var session = await supabase.auth.getSession();
     if (!session.data.session) {

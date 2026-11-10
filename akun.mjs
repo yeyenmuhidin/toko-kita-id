@@ -14,6 +14,26 @@ export function konfigurasiAman(cfg) {
   return { ok: true, url: parsed.origin, publishableKey: key };
 }
 
+export function peranAdmin(role) {
+  return role === "admin";
+}
+
+export function terapkanTautanAdmin(daftar, role) {
+  var tampil = peranAdmin(role);
+  Array.prototype.forEach.call(daftar || [], function (el) {
+    if (el) el.hidden = !tampil;
+  });
+  return tampil;
+}
+
+export function teksBerhasilMasuk(email, jenis) {
+  var alamat = String(email || "").trim();
+  var akhir = alamat ? " Anda masuk sebagai " + alamat + "." : "";
+  if (jenis === "daftar") return "Daftar dan masuk berhasil." + akhir;
+  if (jenis === "sudah") return alamat ? "Anda sudah masuk sebagai " + alamat + "." : "Anda sudah masuk.";
+  return "Masuk berhasil." + akhir;
+}
+
 export function peranToken(key) {
   var parts = String(key || "").split(".");
   if (parts.length < 2) return "";

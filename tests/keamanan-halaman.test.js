@@ -38,5 +38,6 @@ test("modul peramban tidak mengimpor skrip pihak ketiga", () => {
     assert.equal(source.includes("esm.sh"), false, name);
     assert.equal(source.includes("cdn.tailwindcss.com"), false, name);
   });
-  assert.match(fs.readFileSync(path.join(root, "marketplace.mjs"), "utf8"), /from "\.\/vendor\/supabase-js\.mjs"/);
+  assert.match(fs.readFileSync(path.join(root, "supabase-klien.mjs"), "utf8"), /from "\.\/vendor\/supabase-js\.mjs"/);
+  assert.match(fs.readFileSync(path.join(root, "marketplace.mjs"), "utf8"), /klienToko/);
 });

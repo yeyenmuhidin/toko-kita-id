@@ -13,10 +13,21 @@
   <header class="bg-white shadow-sm">
     <div class="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
       <a href="./" class="font-bold text-indigo-700">Toko Kita ID</a>
+      <a href="admin.html" data-nav-admin hidden class="text-sm font-medium text-indigo-700">Admin</a>
       <a href="penjual.html" class="ml-auto text-sm text-indigo-700">Jual</a>
     </div>
   </header>
   <main class="max-w-lg mx-auto px-4 py-6 space-y-4">
+    <div id="masukBerhasil" hidden tabindex="-1" class="rounded-xl border border-green-600 bg-green-50 p-4 space-y-3" role="status" aria-live="polite">
+      <p id="masukBerhasilTeks" class="text-base font-semibold text-green-950"></p>
+      <div class="flex flex-wrap gap-2">
+        <a href="./" class="inline-flex items-center justify-center min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white">Ke etalase</a>
+        <a href="penjual.html" class="inline-flex items-center justify-center min-h-11 rounded-lg border border-indigo-200 bg-white px-4 text-sm font-medium text-indigo-800">Jual</a>
+        <a href="admin.html" data-nav-admin hidden class="inline-flex items-center justify-center min-h-11 rounded-lg bg-indigo-800 px-4 text-sm font-medium text-white">Admin</a>
+      </div>
+    </div>
+    <button id="keluar" type="button" hidden class="w-full min-h-11 border border-gray-300 bg-white rounded-lg font-medium">Keluar</button>
+    <p id="akunStatus" class="text-sm" aria-live="polite"></p>
     <p id="akunBanner" class="text-sm bg-amber-50 border border-amber-200 text-amber-950 rounded-lg p-3"></p>
     <section class="bg-white rounded-xl shadow-sm p-4 space-y-3">
       <h1 class="text-xl font-bold">Masuk</h1>
@@ -40,8 +51,6 @@
         <button class="w-full min-h-11 bg-indigo-600 text-white rounded-lg font-medium" type="submit">Daftar</button>
       </form>
     </section>
-    <button id="keluar" type="button" hidden class="w-full min-h-11 border border-gray-300 rounded-lg">Keluar</button>
-    <p id="akunStatus" class="text-sm" aria-live="polite"></p>
   </main>
   <script src="supabase-config.js"></script>
   <script type="module" src="masuk.mjs"></script>

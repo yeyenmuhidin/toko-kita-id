@@ -1,5 +1,5 @@
-import { createClient } from "./vendor/supabase-js.mjs";
 import { konfigurasiAman } from "./akun.mjs";
+import { klienToko } from "./supabase-klien.mjs";
 
 var HOST_MIDTRANS = ["app.sandbox.midtrans.com", "app.midtrans.com"];
 
@@ -48,7 +48,7 @@ if (!konfigurasi.ok) {
   banner.textContent = "Pembayaran belum terhubung. " + konfigurasi.reason + " Produk contoh tidak dijual, dan tidak ada status lunas yang dibuat.";
 } else {
   banner.textContent = "Checkout sandbox hanya untuk produk akun yang sudah disetujui dan bukan contoh. Status lunas hanya berasal dari notifikasi server.";
-  var supabase = createClient(konfigurasi.url, konfigurasi.publishableKey);
+  var supabase = klienToko(window.TOKO_KITA_SUPABASE);
   var akses = null;
 
   async function muat() {

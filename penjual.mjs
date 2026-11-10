@@ -1,5 +1,5 @@
-import { createClient } from "./vendor/supabase-js.mjs";
 import { berkasGambarAman, konfigurasiAman } from "./akun.mjs";
+import { klienToko } from "./supabase-klien.mjs";
 
 var banner = document.getElementById("jualBanner");
 var status = document.getElementById("jualStatus");
@@ -8,7 +8,7 @@ if (!konfigurasi.ok) {
   banner.textContent = "Halaman jual belum terhubung. " + konfigurasi.reason + " Tidak ada produk yang dikirim.";
 } else {
   banner.textContent = "Perubahan dikirim ke akun Anda dan menunggu tinjauan. Etalase publik tidak berubah sebelum disetujui.";
-  var supabase = createClient(konfigurasi.url, konfigurasi.publishableKey);
+  var supabase = klienToko(window.TOKO_KITA_SUPABASE);
   var userId = null;
   var gambarLama = null;
 
