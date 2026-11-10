@@ -185,7 +185,8 @@
       description: document.getElementById("productDescription").value,
       image: currentImage(),
       visible: document.getElementById("productVisible").checked,
-      contoh: original ? original.contoh === true : false
+      contoh: original ? original.contoh === true : false,
+      images: original && original.images
     }, { ids: list.map(function (product) { return product.id; }).filter(function (itemId) { return itemId !== id; }) });
     if (!checked.ok) {
       Object.keys(checked.errors).forEach(function (key) { fieldError(key, checked.errors[key]); });

@@ -167,7 +167,7 @@ test("parse keranjang lama tetap dipakai dan data rusak dibuang", () => {
   assert.equal(catalog.cartNeedsRepair(mixed, repaired), true);
 });
 
-test("daftar simpan membalik status dan membuang id yang tidak dikenal", () => {
+test("favorit dan perbandingan hanya menyimpan id yang sah", () => {
   assert.deepEqual(catalog.toggleWishlist([1], 1), []);
   assert.deepEqual(catalog.toggleWishlist([1], 4), [1, 4]);
   assert.deepEqual(catalog.toggleWishlist([1], 4), catalog.toggleWishlist([1], 4));
@@ -176,6 +176,23 @@ test("daftar simpan membalik status dan membuang id yang tidak dikenal", () => {
   assert.deepEqual(ids, [2, 8]);
   assert.equal(catalog.wishlistNeedsRepair(raw, ids), true);
   assert.deepEqual(catalog.parseStoredWishlist("bukan-json", [1]), []);
+  assert.equal(catalog.COMPARE_LIMIT, 3);
+  assert.deepEqual(catalog.toggleCompare([], 1), { ids: [1], status: "added" });
+  assert.deepEqual(catalog.toggleCompare([1, 2, 4], 5).status, "limit");
+  assert.deepEqual(catalog.toggleCompare([1, 2, 4], 5).ids, [1, 2, 4]);
+  assert.deepEqual(catalog.toggleCompare([1, 2], 2), { ids: [1], status: "removed" });
+  assert.equal(catalog.toggleCompare([1], "<script>alert(1)</script>").status, "invalid");
+  const stale = JSON.stringify([1, 99, "<script>", 2, 4, 5]);
+  assert.deepEqual(catalog.parseStoredCompare(stale, [1, 2, 4, 5]), [1, 2, 4]);
+  assert.equal(catalog.compareNeedsRepair(stale, [1, 2, 4]), true);
+  assert.deepEqual(catalog.parseStoredCompare("bukan-json", [1]), []);
+  assert.equal(catalog.availabilityLabel(null), "Tidak ada di katalog");
+  assert.equal(catalog.availabilityLabel({ stock: 0 }), "Habis");
+  assert.equal(catalog.availabilityLabel({ contoh: true, stock: 4 }), "Contoh, tidak dijual");
+  assert.equal(catalog.availabilityLabel({ visible: false, stock: 4 }), "Tidak ditampilkan");
+  assert.equal(catalog.availabilityLabel({ stock: 2 }), "Tersedia, 2");
+  assert.equal(catalog.availabilityLabel({ name: "<script>" }), "Ketersediaan tidak dicatat");
+  assert.equal(catalog.escapeHtml(catalog.availabilityLabel({ name: "<script>" })).includes("<script>"), false);
 });
 
 test("detail hanya mengaitkan produk dalam kategori yang sama", () => {
@@ -207,12 +224,137 @@ test("checkout demo memvalidasi kontak dan merangkum barang", () => {
   assert.equal(summary.items[0].lineTotal, 378000);
 });
 
+test("katalog akun kosong kembali ke contoh, galat tidak", () => {
+  assert.equal(catalog.keputusanKatalogAkun({ products: [] }), "demo-kosong");
+  assert.equal(catalog.keputusanKatalogAkun({ products: [], kosong: true }), "demo-kosong");
+  assert.equal(catalog.keputusanKatalogAkun({ error: "gagal" }), "galat");
+  assert.equal(catalog.keputusanKatalogAkun({ products: [{ id: "x" }] }), "akun");
+});
+
 test("teks dan gambar diamankan", () => {
   assert.equal(catalog.escapeHtml(`<b class="x">'`), "&lt;b class=&quot;x&quot;&gt;&#39;");
   assert.equal(catalog.safeImageUrl(products[0].image), products[0].image);
   assert.equal(catalog.safeImageUrl("javascript:alert(1)"), "");
   assert.equal(catalog.safeImageUrl("http://example.com/a.jpg"), "");
   assert.equal(catalog.safeImageUrl("data:text/html,hi"), "");
+});
+
+test("detail publik, galeri, dan tautan WhatsApp memakai jalur Pages", () => {
+  const document = JSON.parse(fs.readFileSync(path.join(root, "catalog.json"), "utf8"));
+  const parsed = catalog.parseCatalogDocument(document);
+  const iphone = parsed.products[0];
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(catalog.productGallery(iphone), [iphone.image]);
+  assert.equal(iphone.images, undefined);
+
+  const second = parsed.products[1].image;
+  const gallery = catalog.productGallery({
+    image: iphone.image,
+    images: [iphone.image, second, "javascript:alert(1)", "http://example.com/a.jpg", "data:text/html,hi", ""]
+  });
+  assert.deepEqual(gallery, [iphone.image, second]);
+  assert.deepEqual(catalog.productGallery(null), []);
+  assert.deepEqual(catalog.productGallery({ image: "javascript:alert(1)" }), []);
+
+  const withExtra = catalog.parseCatalogDocument({
+    schema: 1,
+    products: [{
+      id: 20,
+      name: "Kaos Baru",
+      price: 125000,
+      image: iphone.image,
+      images: ["javascript:alert(1)", second, second],
+      category: "Fashion",
+      description: "Bahan katun yang nyaman untuk dipakai harian.",
+      visible: true
+    }]
+  });
+  assert.equal(withExtra.ok, true);
+  assert.deepEqual(withExtra.products[0].images, [second]);
+
+  const shown = catalog.publicDetail(iphone, { id: 1 });
+  assert.equal(shown.status, "tayang");
+  assert.equal(shown.contoh, true);
+  assert.equal(shown.gallery.length, 1);
+  assert.equal(shown.permalink, "https://yeyenmuhidin.github.io/toko-kita-id/?produk=1&demo=1");
+  assert.equal(shown.sellerName, undefined);
+  assert.equal(shown.imagePath, undefined);
+  assert.equal(catalog.publicDetail(iphone, { id: 99 }).status, "tidak-ada");
+  assert.equal(catalog.publicDetail(iphone, { id: "<script>alert(1)</script>" }).status, "tidak-sah");
+  assert.equal(catalog.publicDetail(null, { id: 4 }).status, "tidak-ada");
+  const hidden = catalog.publicDetail({
+    id: 4,
+    name: "Rahasia <script>",
+    price: 10,
+    description: "Data yang tidak boleh dibagikan ke publik.",
+    category: "Fashion",
+    image: iphone.image,
+    visible: false,
+    sellerName: "Pemilik"
+  }, { id: 4 });
+  assert.equal(hidden.status, "tidak-ditampilkan");
+  assert.equal(hidden.name, undefined);
+  assert.equal(hidden.permalink, undefined);
+  const pending = catalog.publicDetail({
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Menunggu",
+    price: 10,
+    description: "Deskripsi produk yang belum disetujui.",
+    category: "Fashion",
+    image: iphone.image,
+    visible: true,
+    status: "menunggu"
+  }, { id: "11111111-1111-4111-8111-111111111111" });
+  assert.equal(pending.status, "tidak-ditampilkan");
+  assert.equal(pending.name, undefined);
+  assert.equal(catalog.publicDetail(iphone, { id: 1, catalogError: true }).status, "galat");
+
+  const live = catalog.publicDetail({
+    id: 9,
+    name: "Produk disetujui",
+    price: 50000,
+    description: "Deskripsi katalog yang memang ditampilkan.",
+    category: "Fashion",
+    image: second,
+    visible: true,
+    status: "disetujui",
+    contoh: false
+  }, { id: 9 });
+  assert.equal(live.permalink, "https://yeyenmuhidin.github.io/toko-kita-id/?produk=9");
+  assert.equal(live.contoh, false);
+
+  const share = catalog.whatsappShareUrl('Kaos <script> & "x"', shown.permalink);
+  assert.match(share, /^https:\/\/wa\.me\/\?text=/);
+  assert.equal(share.includes("phone="), false);
+  const text = decodeURIComponent(share.slice("https://wa.me/?text=".length));
+  assert.equal(text, 'Kaos <script> & "x"\nhttps://yeyenmuhidin.github.io/toko-kita-id/?produk=1&demo=1');
+  assert.equal(catalog.whatsappShareUrl("Kaos", "javascript:alert(1)"), "");
+  assert.equal(catalog.whatsappShareUrl("Kaos", "https://evil.example/toko-kita-id/?produk=1"), "");
+  assert.equal(catalog.whatsappShareUrl("Kaos", "https://yeyenmuhidin.github.io/?produk=1"), "");
+  const stripped = catalog.whatsappShareUrl("Kaos", "https://yeyenmuhidin.github.io/toko-kita-id/?produk=1&pratinjau=draf&token=rahasia");
+  const strippedText = decodeURIComponent(stripped.slice("https://wa.me/?text=".length));
+  assert.equal(strippedText, "Kaos\nhttps://yeyenmuhidin.github.io/toko-kita-id/?produk=1");
+  assert.equal(strippedText.includes("rahasia"), false);
+  assert.equal(strippedText.includes("pratinjau"), false);
+});
+
+test("riwayat dilihat menyimpan id terbaru, membuang yang tidak sah, dan paling banyak delapan", () => {
+  assert.equal(catalog.RECENT_LIMIT, 8);
+  assert.deepEqual(catalog.rememberViewed([], 4), [4]);
+  assert.deepEqual(catalog.rememberViewed([4, 2], 1), [1, 4, 2]);
+  assert.deepEqual(catalog.rememberViewed([1, 4, 2], 4), [4, 1, 2]);
+  assert.deepEqual(catalog.rememberViewed([1], "<script>alert(1)</script>"), [1]);
+  assert.deepEqual(catalog.rememberViewed([1], "bukan-id"), [1]);
+  const capped = [8, 7, 6, 5, 4, 3, 2, 1].reduce((list, id) => catalog.rememberViewed(list, id), []);
+  assert.deepEqual(capped, [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(capped.length, 8);
+  assert.deepEqual(catalog.clearViewed(), []);
+  const raw = JSON.stringify([2, 2, "x", 99, "<script>", 8, 1]);
+  const known = products.map((product) => product.id);
+  assert.deepEqual(catalog.parseStoredRecent(raw, known), [2, 8, 1]);
+  assert.equal(catalog.recentNeedsRepair(raw, [2, 8, 1]), true);
+  assert.deepEqual(catalog.parseStoredRecent("bukan-json", known), []);
+  assert.deepEqual(catalog.parseStoredRecent(JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9]), [1, 2, 3, 4, 5, 6, 7, 8, 9]), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
 test("halaman mempertahankan checkout, merek, dan batas demo", () => {
@@ -242,6 +384,17 @@ test("halaman mempertahankan checkout, merek, dan batas demo", () => {
   assert.match(html, /Tidak ada pembayaran atau pengiriman yang diproses/);
   assert.match(script, /tokoKitaCart/);
   assert.match(script, /tokoKitaWishlist/);
+  assert.match(script, /tokoKitaBanding/);
+  assert.match(script, /tokoKitaBaruDilihat/);
+  assert.match(html, /id="recentSection"/);
+  assert.match(html, /Baru dilihat/);
+  assert.match(html, /Hapus riwayat/);
+  assert.match(script, /Bagikan lewat WhatsApp/);
+  assert.match(script, /whatsappShareUrl/);
+  assert.match(sources, /yeyenmuhidin\.github\.io/);
+  assert.match(sources, /\/toko-kita-id\//);
+  assert.match(html, /id="compareBtn"/);
+  assert.match(html, /id="compareSidebar"/);
   assert.match(script, /TokoKitaCatalog/);
   assert.equal(script.includes("18999000"), false);
   ["tokopedia", "terjual", "bintang", "rating", "gratis ongkir", "official store"].forEach((word) => {

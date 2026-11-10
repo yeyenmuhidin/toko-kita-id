@@ -6,6 +6,7 @@
   "use strict";
 
   var MAX_QTY = 99;
+  var COMPARE_LIMIT = 3;
   var PRICE_RANGE_ERROR = "Harga minimum tidak boleh lebih besar dari harga maksimum.";
   var EMPTY_RESULT_MESSAGE = "Tidak ada produk yang cocok. Coba kata kunci lain atau atur ulang filter.";
 
@@ -146,7 +147,7 @@
 
   function toCartItem(product, quantity) {
     return {
-      id: product.id,
+      id: canonicalProductId(product.id),
       name: product.name,
       price: product.price,
       image: product.image,
@@ -157,7 +158,7 @@
   }
 
   function addItem(items, product, quantity) {
-    if (!product || !Number.isInteger(product.id)) return items.slice();
+    if (!product || canonicalProductId(product.id) == null) return items.slice();
     var qty = clampQuantity(quantity);
     var existing = null;
     items.forEach(function (item) {
@@ -197,15 +198,75 @@
     return items.length > 0 && totalQuantity(items) > 0;
   }
 
+  function canonicalProductId(value) {
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
+    if (typeof value === "string" && /^[1-9]\d{0,8}$/.test(value)) return Number(value);
+    if (typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      return value.toLowerCase();
+    }
+    return null;
+  }
+
   function toggleWishlist(ids, productId) {
-    if (!Number.isInteger(productId)) return ids.slice();
-    if (ids.indexOf(productId) !== -1) return ids.filter(function (id) { return id !== productId; });
-    return ids.concat([productId]);
+    var id = canonicalProductId(productId);
+    if (id == null) return ids.slice();
+    if (ids.indexOf(id) !== -1) return ids.filter(function (item) { return item !== id; });
+    return ids.concat([id]);
+  }
+
+  function toggleCompare(ids, productId) {
+    var list = Array.isArray(ids) ? ids.slice() : [];
+    var id = canonicalProductId(productId);
+    if (id == null) return { ids: list, status: "invalid" };
+    if (list.indexOf(id) !== -1) {
+      return { ids: list.filter(function (item) { return item !== id; }), status: "removed" };
+    }
+    if (list.length >= COMPARE_LIMIT) return { ids: list, status: "limit" };
+    return { ids: list.concat([id]), status: "added" };
+  }
+
+  function parseStoredCompare(raw, knownIds) {
+    return parseStoredWishlist(raw, knownIds).slice(0, COMPARE_LIMIT);
+  }
+
+  function compareNeedsRepair(raw, ids) {
+    return wishlistNeedsRepair(raw, ids);
+  }
+
+  var RECENT_LIMIT = 8;
+
+  function rememberViewed(ids, productId) {
+    var list = Array.isArray(ids) ? ids.slice() : [];
+    var id = canonicalProductId(productId);
+    if (id == null) return list;
+    list = list.filter(function (item) { return String(item) !== String(id); });
+    return [id].concat(list).slice(0, RECENT_LIMIT);
+  }
+
+  function parseStoredRecent(raw, knownIds) {
+    return parseStoredWishlist(raw, knownIds).slice(0, RECENT_LIMIT);
+  }
+
+  function recentNeedsRepair(raw, ids) {
+    return wishlistNeedsRepair(raw, ids);
+  }
+
+  function clearViewed() {
+    return [];
+  }
+
+  function availabilityLabel(product) {
+    if (!product) return "Tidak ada di katalog";
+    if (product.visible === false) return "Tidak ditampilkan";
+    if (product.contoh === true) return "Contoh, tidak dijual";
+    if (product.stock === 0) return "Habis";
+    if (typeof product.stock === "number" && product.stock > 0) return "Tersedia, " + product.stock;
+    return "Ketersediaan tidak dicatat";
   }
 
   function integerId(value) {
-    var id = Number(value);
-    return Number.isInteger(id) && id > 0 ? id : null;
+    var id = canonicalProductId(value);
+    return typeof id === "number" ? id : null;
   }
 
   function parseStoredCart(raw) {
@@ -219,7 +280,7 @@
     if (!Array.isArray(data)) return [];
     return data.flatMap(function (item) {
       if (!item || typeof item !== "object") return [];
-      var id = integerId(item.id);
+      var id = canonicalProductId(item.id);
       var price = Number(item.price);
       var quantity = Number(item.quantity);
       if (id == null || !Number.isFinite(price) || !Number.isFinite(quantity)) return [];
@@ -251,7 +312,7 @@
     }, {}) : null;
     var ids = [];
     data.forEach(function (value) {
-      var id = integerId(value);
+      var id = canonicalProductId(value);
       if (id == null) return;
       if (known && !known[id]) return;
       if (ids.indexOf(id) === -1) ids.push(id);
@@ -270,7 +331,7 @@
     if (!Array.isArray(data) || data.length !== cart.length) return true;
     return data.some(function (item, index) {
       var next = cart[index];
-      return Number(item && item.quantity) !== next.quantity || Number(item && item.id) !== next.id;
+      return Number(item && item.quantity) !== next.quantity || String(item && item.id) !== String(next.id);
     });
   }
 
@@ -283,7 +344,7 @@
       return true;
     }
     if (!Array.isArray(data) || data.length !== ids.length) return true;
-    return data.some(function (value, index) { return Number(value) !== ids[index]; });
+    return data.some(function (value, index) { return String(value) !== String(ids[index]); });
   }
 
   function relatedProducts(list, product) {
@@ -294,6 +355,7 @@
   }
 
   function catalogCode(id) {
+    if (typeof id === "string" && id.indexOf("-") !== -1) return "TKI-" + id.slice(0, 8).toUpperCase();
     return "TKI-" + String(id).padStart(3, "0");
   }
 
@@ -452,6 +514,8 @@
       description: description,
       visible: source.visible !== false
     };
+    var extras = productGallery({ image: image, images: source.images }).filter(function (url) { return url !== image; });
+    if (extras.length) product.images = extras;
     if (source.contoh === true) product.contoh = true;
     return { ok: Object.keys(errors).length === 0, errors: errors, value: product };
   }
@@ -553,6 +617,85 @@
     return (list || []).filter(function (product) { return product.id !== productId; });
   }
 
+  function keputusanKatalogAkun(payload) {
+    if (!payload || payload.error) return "galat";
+    if (!payload.products || !payload.products.length) return "demo-kosong";
+    return "akun";
+  }
+
+  var PAGES_ORIGIN = "https://yeyenmuhidin.github.io";
+  var PAGES_DIRECTORY = "/toko-kita-id/";
+  var GALLERY_LIMIT = 8;
+
+  function productGallery(product) {
+    var urls = [];
+    function push(url) {
+      if (urls.length >= GALLERY_LIMIT) return;
+      var safe = safeProductImage(typeof url === "string" ? url.trim() : "");
+      if (!safe || urls.indexOf(safe) !== -1) return;
+      urls.push(safe);
+    }
+    if (!product || typeof product !== "object") return urls;
+    push(product.image);
+    if (Array.isArray(product.images)) product.images.forEach(push);
+    return urls;
+  }
+
+  function productPermalink(id, options) {
+    var canonical = canonicalProductId(id);
+    if (canonical == null) return "";
+    var params = new URLSearchParams();
+    params.set("produk", String(canonical));
+    if (options && options.demo) params.set("demo", "1");
+    return PAGES_ORIGIN + PAGES_DIRECTORY + "?" + params.toString();
+  }
+
+  function whatsappShareUrl(title, permalink) {
+    var name = cleanPlainText(title).slice(0, 80);
+    if (!name || typeof permalink !== "string") return "";
+    var parsed;
+    try {
+      parsed = new URL(permalink);
+    } catch (error) {
+      return "";
+    }
+    if (parsed.origin !== PAGES_ORIGIN || parsed.pathname !== PAGES_DIRECTORY) return "";
+    if (parsed.username || parsed.password || parsed.hash) return "";
+    var id = canonicalProductId(parsed.searchParams.get("produk"));
+    if (id == null) return "";
+    var clean = productPermalink(id, { demo: parsed.searchParams.get("demo") === "1" });
+    return "https://wa.me/?text=" + encodeURIComponent(name + "\n" + clean);
+  }
+
+  function publicDetail(product, request) {
+    var req = request || {};
+    if (req.catalogError) return { status: "galat" };
+    var requested = req.id != null ? req.id : product && product.id;
+    var id = canonicalProductId(requested);
+    if (id == null) return { status: "tidak-sah" };
+    var productId = product ? canonicalProductId(product.id) : null;
+    if (!product || String(productId) !== String(id)) {
+      return { status: "tidak-ada" };
+    }
+    var privateStatus = product.status && product.status !== "disetujui" && product.contoh !== true;
+    if (product.visible === false || product.archived === true || privateStatus) {
+      return { status: "tidak-ditampilkan" };
+    }
+    var demo = product.contoh === true || req.demo === true;
+    return {
+      status: "tayang",
+      id: productId,
+      name: cleanPlainText(product.name),
+      price: typeof product.price === "number" ? product.price : null,
+      category: cleanPlainText(product.category),
+      description: cleanPlainText(product.description),
+      availability: availabilityLabel(product),
+      contoh: product.contoh === true,
+      gallery: productGallery(product),
+      permalink: productPermalink(productId, { demo: demo })
+    };
+  }
+
   return {
     MAX_QTY: MAX_QTY,
     PRICE_RANGE_ERROR: PRICE_RANGE_ERROR,
@@ -574,7 +717,18 @@
     totalQuantity: totalQuantity,
     totalPrice: totalPrice,
     canCheckout: canCheckout,
+    COMPARE_LIMIT: COMPARE_LIMIT,
+    RECENT_LIMIT: RECENT_LIMIT,
+    rememberViewed: rememberViewed,
+    parseStoredRecent: parseStoredRecent,
+    recentNeedsRepair: recentNeedsRepair,
+    clearViewed: clearViewed,
     toggleWishlist: toggleWishlist,
+    toggleCompare: toggleCompare,
+    parseStoredCompare: parseStoredCompare,
+    compareNeedsRepair: compareNeedsRepair,
+    availabilityLabel: availabilityLabel,
+    canonicalProductId: canonicalProductId,
     parseStoredCart: parseStoredCart,
     parseStoredWishlist: parseStoredWishlist,
     cartNeedsRepair: cartNeedsRepair,
@@ -600,6 +754,11 @@
     serializeDraft: serializeDraft,
     nextProductId: nextProductId,
     upsertProduct: upsertProduct,
-    deleteProduct: deleteProduct
+    deleteProduct: deleteProduct,
+    keputusanKatalogAkun: keputusanKatalogAkun,
+    productGallery: productGallery,
+    productPermalink: productPermalink,
+    whatsappShareUrl: whatsappShareUrl,
+    publicDetail: publicDetail
   };
 });

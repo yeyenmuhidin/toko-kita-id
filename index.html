@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Toko Kita ID, katalog demo toko online. Cari produk, saring kategori, simpan keranjang, dan buat daftar simpan di peramban Anda." />
+  <meta name="description" content="Toko Kita ID, katalog demo toko online. Cari produk, simpan favorit, dan bandingkan sampai tiga produk di peramban Anda." />
   <meta name="theme-color" content="#4f46e5" />
   <title>Toko Kita ID - Toko Online</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -15,8 +15,17 @@
     input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
     .drawer { transition: transform 0.3s ease-in-out; transform: translateX(100%); }
     .drawer.open { transform: translateX(0); }
-    .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+    body { -webkit-font-smoothing: antialiased; }
+    .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; border: 1px solid #e5e7eb; }
     .product-card:focus-within { outline: 2px solid #4338ca; outline-offset: 2px; }
+    .product-card.is-compared { border-color: #a5b4fc; box-shadow: 0 0 0 2px #c7d2fe; }
+    body.has-compare { padding-bottom: calc(9rem + env(safe-area-inset-bottom)); }
+    #compareBar { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+    #productGallery:focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
+    .gallery-thumbs button img, .gallery-thumbs button div { pointer-events: none; }
+    @media (min-width: 640px) {
+      body.has-compare { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
+    }
     .z-nav { z-index: 30; }
     .z-overlay { z-index: 40; }
     .z-drawer { z-index: 50; }
@@ -34,43 +43,53 @@
 <body class="bg-gray-50 text-gray-800">
   <a id="skipLink" href="#katalog" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-modal-top focus:bg-white focus:px-3 focus:py-2 focus:rounded-lg">Lewati ke katalog</a>
 
-  <header id="siteHeader" class="bg-white shadow-md sticky top-0 z-nav">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-      <div class="flex items-center gap-3">
-        <a href="./" id="brandLink" class="flex items-center gap-2 shrink-0 rounded-lg">
-          <i class="fas fa-store text-indigo-600 text-2xl" aria-hidden="true"></i>
-          <span class="text-xl font-bold text-indigo-700">Toko Kita ID</span>
+  <header id="siteHeader" class="bg-white border-b border-indigo-100 sticky top-0 z-nav">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <a href="./" id="brandLink" class="flex items-center gap-2 shrink-0 rounded-lg min-h-11 pr-1">
+          <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white" aria-hidden="true"><i class="fas fa-store"></i></span>
+          <span class="text-lg sm:text-xl font-bold tracking-tight text-indigo-800">Toko Kita ID</span>
         </a>
-        <div class="ml-auto flex items-center gap-1">
-          <a href="kelola.html" class="inline-flex items-center min-h-11 px-2 text-sm font-medium text-indigo-700">Kelola</a>
-          <button id="wishlistBtn" type="button" class="relative inline-flex items-center gap-2 min-h-11 px-3 rounded-full hover:bg-gray-100" aria-expanded="false" aria-controls="wishlistSidebar">
+        <nav aria-label="Akun dan kelola" class="order-3 flex w-full items-center gap-1 overflow-x-auto text-sm sm:order-none sm:w-auto">
+          <a href="masuk.html" class="inline-flex items-center min-h-11 rounded-full px-3 font-medium text-indigo-700 hover:bg-indigo-50">Masuk</a>
+          <a href="penjual.html" class="inline-flex items-center min-h-11 rounded-full px-3 font-medium text-indigo-700 hover:bg-indigo-50">Jual</a>
+          <a href="kelola.html" class="inline-flex items-center min-h-11 rounded-full px-3 font-medium text-indigo-700 hover:bg-indigo-50">Kelola</a>
+        </nav>
+        <div class="ml-auto order-2 flex items-center gap-0.5 rounded-full bg-indigo-50 p-1 sm:order-none">
+          <button id="wishlistBtn" type="button" class="relative inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-2 rounded-full hover:bg-indigo-50" aria-expanded="false" aria-controls="wishlistSidebar">
             <i id="wishlistIcon" class="far fa-heart text-xl text-gray-700" aria-hidden="true"></i>
-            <span class="hidden sm:inline text-sm font-medium">Simpanan</span>
-            <span id="wishlistCount" hidden class="bg-rose-600 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center">0</span>
+            <span class="hidden md:inline text-sm font-medium">Favorit</span>
+            <span id="wishlistCount" hidden class="absolute -top-0.5 -right-0.5 bg-rose-600 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center">0</span>
           </button>
-          <button id="cartBtn" type="button" class="relative inline-flex items-center gap-2 min-h-11 px-3 rounded-full hover:bg-gray-100" aria-expanded="false" aria-controls="cartSidebar">
+          <button id="compareBtn" type="button" class="relative inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-2 rounded-full hover:bg-indigo-50" aria-expanded="false" aria-controls="compareSidebar">
+            <i id="compareIcon" class="fas fa-columns text-xl text-gray-700" aria-hidden="true"></i>
+            <span class="hidden md:inline text-sm font-medium">Banding</span>
+            <span id="compareCount" hidden class="absolute -top-0.5 -right-0.5 bg-indigo-700 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center">0</span>
+          </button>
+          <button id="cartBtn" type="button" class="relative inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-2 rounded-full hover:bg-indigo-50" aria-expanded="false" aria-controls="cartSidebar">
             <i class="fas fa-shopping-cart text-xl text-gray-700" aria-hidden="true"></i>
-            <span class="hidden sm:inline text-sm font-medium">Keranjang</span>
-            <span id="cartCount" hidden class="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center">0</span>
+            <span class="hidden md:inline text-sm font-medium">Keranjang</span>
+            <span id="cartCount" hidden class="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center">0</span>
           </button>
         </div>
       </div>
       <form id="searchForm" role="search" class="mt-3 flex gap-2">
         <label for="searchInput" class="sr-only">Cari produk</label>
         <div class="relative flex-1">
-          <input id="searchInput" name="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Cari produk" class="w-full border border-gray-300 rounded-lg py-2.5 pl-10 pr-10 text-base focus:ring-2 focus:ring-indigo-500" />
+          <input id="searchInput" name="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Cari produk" class="w-full min-h-11 border border-gray-300 rounded-xl py-2.5 pl-10 pr-10 text-base focus:ring-2 focus:ring-indigo-500" />
           <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
           <button id="clearSearch" type="button" hidden class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full text-gray-500 hover:bg-gray-100" aria-label="Hapus pencarian">&times;</button>
         </div>
-        <button type="submit" class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg font-medium min-h-11">Cari</button>
+        <button type="submit" class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-xl font-medium min-h-11">Cari</button>
       </form>
     </div>
   </header>
 
-  <section id="hero" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-10 md:py-12">
-    <div class="max-w-7xl mx-auto px-4 text-center">
-      <h1 class="text-3xl md:text-4xl font-bold mb-3">Selamat Datang di Toko Kita ID</h1>
-      <p class="text-indigo-100 text-lg">Belanja produk terbaik dengan harga terbaik</p>
+  <section id="hero" class="bg-gradient-to-br from-indigo-800 to-indigo-600 text-white py-5 sm:py-8">
+    <div class="max-w-7xl mx-auto px-4">
+      <p class="text-xs font-semibold uppercase tracking-wide text-indigo-100">Katalog Toko Kita ID</p>
+      <h1 class="mt-1 text-2xl sm:text-4xl font-bold tracking-tight">Lihat, simpan, dan bandingkan</h1>
+      <p class="mt-2 max-w-2xl text-sm sm:text-base leading-relaxed text-indigo-100">Favorit dan perbandingan paling banyak tiga produk tersimpan di peramban ini. Tidak ada ulasan, angka penjualan, atau potongan harga yang ditambahkan.</p>
     </div>
   </section>
 
@@ -79,14 +98,22 @@
     <p id="catalogSource" class="max-w-7xl mx-auto px-4 pb-3 text-sm text-amber-950">Memuat katalog tayang…</p>
   </div>
   <div id="storageWarning" hidden class="bg-red-50" role="alert">
-    <p class="max-w-7xl mx-auto px-4 py-3 text-sm text-red-800">Penyimpanan peramban tidak tersedia. Keranjang dan simpanan tidak akan tersimpan setelah halaman ditutup.</p>
+    <p class="max-w-7xl mx-auto px-4 py-3 text-sm text-red-800">Penyimpanan peramban tidak tersedia. Keranjang, favorit, perbandingan, dan riwayat dilihat tidak akan tersimpan setelah halaman ditutup.</p>
   </div>
 
-  <main id="katalog" tabindex="-1" class="max-w-7xl mx-auto px-4 py-8">
-    <form id="filterForm" class="mb-8">
-      <fieldset class="space-y-4">
+  <main id="katalog" tabindex="-1" class="max-w-7xl mx-auto px-4 py-5 sm:py-8">
+    <section id="recentSection" hidden class="mb-6 min-w-0">
+      <div class="flex items-end justify-between gap-3 mb-1">
+        <h2 id="recentHeading" class="text-xl font-bold tracking-tight text-gray-900">Baru dilihat</h2>
+        <button id="clearRecent" type="button" data-action="clear-recent" class="min-h-11 shrink-0 rounded-xl px-3 text-sm font-medium text-indigo-800">Hapus riwayat</button>
+      </div>
+      <p class="text-sm text-gray-600 mb-3">Riwayat ini hanya tersimpan di peramban ini, paling banyak 8 produk.</p>
+      <div id="recentRow" class="flex gap-3 overflow-x-auto pb-1 snap-x" role="list"></div>
+    </section>
+    <form id="filterForm" class="mb-6">
+      <fieldset class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <legend class="text-lg font-semibold mb-1">Saring produk</legend>
-        <div id="categoryFilters" role="group" aria-label="Kategori produk" class="flex gap-2 overflow-x-auto pb-1"></div>
+        <div id="categoryFilters" role="group" aria-label="Kategori produk" class="flex gap-2 overflow-x-auto pb-1 snap-x"></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           <div>
             <label for="sortSelect" class="block text-sm font-medium mb-1">Urutkan</label>
@@ -114,11 +141,11 @@
     </form>
 
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2 mb-6">
-      <h2 id="catalogHeading" tabindex="-1" class="text-2xl font-bold">Semua Produk</h2>
+      <h2 id="catalogHeading" tabindex="-1" class="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Semua Produk</h2>
       <p id="resultCount" class="text-sm text-gray-600" aria-live="polite">Memuat katalog demo…</p>
     </div>
     <p id="catalogError" hidden class="mb-4 rounded-lg bg-red-50 text-red-800 px-4 py-3" role="alert">Katalog gagal dimuat. Muat ulang halaman ini.</p>
-    <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" aria-busy="true">
+    <div id="productGrid" class="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" aria-busy="true">
       <p class="text-gray-500">Memuat katalog demo…</p>
     </div>
   </main>
@@ -128,11 +155,20 @@
 
   <aside id="wishlistSidebar" class="drawer fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-drawer flex flex-col" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="wishlistTitle" inert>
     <div class="p-5 border-b flex justify-between items-center gap-3">
-      <h2 id="wishlistTitle" class="text-xl font-bold">Daftar simpan</h2>
-      <button id="closeWishlist" type="button" class="w-11 h-11 text-gray-500 hover:text-gray-700 text-2xl" aria-label="Tutup daftar simpan">&times;</button>
+      <h2 id="wishlistTitle" class="text-xl font-bold">Favorit</h2>
+      <button id="closeWishlist" type="button" class="w-11 h-11 text-gray-500 hover:text-gray-700 text-2xl" aria-label="Tutup favorit">&times;</button>
     </div>
-    <p class="px-5 pt-4 text-sm text-gray-600">Daftar simpan tersimpan di peramban ini.</p>
+    <p class="px-5 pt-4 text-sm text-gray-600">Favorit hanya tersimpan di peramban ini, bukan di akun. Yang disimpan hanya identitas produk.</p>
     <div id="wishlistItems" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
+  </aside>
+
+  <aside id="compareSidebar" class="drawer fixed top-0 right-0 h-full w-full max-w-3xl bg-white shadow-2xl z-drawer flex flex-col" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="compareTitle" inert>
+    <div class="p-5 border-b flex justify-between items-center gap-3">
+      <h2 id="compareTitle" class="text-xl font-bold">Perbandingan</h2>
+      <button id="closeCompare" type="button" class="w-11 h-11 text-gray-500 hover:text-gray-700 text-2xl" aria-label="Tutup perbandingan">&times;</button>
+    </div>
+    <p class="px-5 pt-4 text-sm text-gray-600">Paling banyak 3 produk. Yang dibandingkan hanya harga, kategori, deskripsi, dan ketersediaan yang ada di katalog. Tersimpan di peramban ini.</p>
+    <div id="compareItems" class="flex-1 overflow-y-auto p-5"></div>
   </aside>
 
   <aside id="cartSidebar" class="drawer fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-drawer flex flex-col" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="cartTitle" inert>
@@ -169,7 +205,8 @@
         <h2 id="checkoutTitle" tabindex="-1" class="text-xl font-bold">Checkout</h2>
         <button id="closeCheckout" type="button" class="w-11 h-11 text-gray-500 hover:text-gray-700 text-2xl" aria-label="Tutup checkout">&times;</button>
       </div>
-      <p class="text-sm text-amber-950 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">Simulasi checkout. Data pesanan tidak dikirim ke server, pembayaran, atau jasa kirim.</p>
+      <p class="text-sm text-amber-950 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">Simulasi checkout. Data pesanan tidak dikirim ke server, pembayaran, atau jasa kirim. Produk contoh tidak dijual dan tidak bisa dibayar.</p>
+      <p class="text-sm mb-4"><a class="text-indigo-700 font-medium" href="pesanan.html">Pesanan akun dan pembayaran sandbox</a></p>
       <form id="checkoutForm" class="space-y-4" novalidate>
         <div>
           <label for="nama" class="block text-sm font-medium mb-1">Nama Lengkap</label>
@@ -214,6 +251,16 @@
     </div>
   </div>
 
+  <div id="compareBar" hidden class="fixed inset-x-0 bottom-0 z-nav border-t border-indigo-100 bg-white/95 shadow-[0_-8px_24px_-16px_rgba(49,46,129,0.45)]">
+    <div class="max-w-7xl mx-auto px-4 pt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <p id="compareBarText" class="text-sm font-medium leading-snug text-indigo-950 sm:flex-1">0 dari 3 produk untuk dibandingkan</p>
+      <div class="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+        <button id="openCompare" type="button" class="min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 font-medium">Lihat perbandingan</button>
+        <button id="clearCompare" type="button" data-action="clear-compare" class="min-h-11 border border-gray-300 bg-white rounded-lg px-3 font-medium">Kosongkan</button>
+      </div>
+    </div>
+  </div>
+
   <footer id="siteFooter" class="bg-gray-800 text-gray-300 py-8 mt-12">
     <div class="max-w-7xl mx-auto px-4 text-center">
       <p class="font-semibold text-white mb-1">Toko Kita ID</p>
@@ -226,7 +273,9 @@
     <p class="max-w-7xl mx-auto px-4 py-6 text-red-800">JavaScript diperlukan untuk menampilkan katalog Toko Kita ID.</p>
   </noscript>
 
+  <script src="supabase-config.js"></script>
   <script src="catalog.js"></script>
   <script src="script.js"></script>
+  <script type="module" src="marketplace.mjs"></script>
 </body>
 </html>
