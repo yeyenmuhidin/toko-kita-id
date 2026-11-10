@@ -5,40 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Toko Kita ID, katalog demo toko online. Cari produk, simpan favorit, dan bandingkan sampai tiga produk di peramban Anda." />
   <meta name="theme-color" content="#4f46e5" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; font-src 'self'; connect-src 'self' https://xlsbhvpveivhbqikmxxp.supabase.co wss://xlsbhvpveivhbqikmxxp.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'" />
   <title>Toko Kita ID - Toko Online</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <style>
-    [hidden] { display: none !important; }
-    html { overflow-x: hidden; }
-    html { overflow-x: clip; }
-    input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
-    .drawer { transition: transform 0.3s ease-in-out; transform: translateX(100%); }
-    .drawer.open { transform: translateX(0); }
-    body { -webkit-font-smoothing: antialiased; }
-    .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; border: 1px solid #e5e7eb; }
-    .product-card:focus-within { outline: 2px solid #4338ca; outline-offset: 2px; }
-    .product-card.is-compared { border-color: #a5b4fc; box-shadow: 0 0 0 2px #c7d2fe; }
-    body.has-compare { padding-bottom: calc(9rem + env(safe-area-inset-bottom)); }
-    #compareBar { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
-    #productGallery:focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
-    .gallery-thumbs button img, .gallery-thumbs button div { pointer-events: none; }
-    @media (min-width: 640px) {
-      body.has-compare { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
-    }
-    .z-nav { z-index: 30; }
-    .z-overlay { z-index: 40; }
-    .z-drawer { z-index: 50; }
-    .z-modal { z-index: 60; }
-    .z-modal-top { z-index: 70; }
-    :focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
-    @media (hover: hover) and (pointer: fine) {
-      .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px -8px rgba(0,0,0,0.15); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .drawer, .product-card { transition: none; }
-    }
-  </style>
+  <link rel="stylesheet" href="assets/tailwind.css" />
+  <link rel="stylesheet" href="assets/fontawesome/css/all.min.css" />
+  <link rel="stylesheet" href="assets/index.css" />
 </head>
 <body class="bg-gray-50 text-gray-800">
   <a id="skipLink" href="#katalog" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-modal-top focus:bg-white focus:px-3 focus:py-2 focus:rounded-lg">Lewati ke katalog</a>

@@ -10,10 +10,23 @@ function psql(db, args) {
   return execFileSync("sudo", ["-u", "postgres", "psql", "-d", db, "-v", "ON_ERROR_STOP=1", ...args], { encoding: "utf8" });
 }
 
-test("folder migrasi tidak lagi memasang enam berkas lama", () => {
+test("folder migrasi hanya berisi pencabutan default privileges masa depan", () => {
   const dir = path.join(__dirname, "../supabase/migrations");
   const names = fs.existsSync(dir) ? fs.readdirSync(dir).filter((name) => name.endsWith(".sql")) : [];
-  assert.deepEqual(names, []);
+  assert.equal(names.length, 1);
+  assert.match(names[0], /^\d{14}_cabut_default_privileges_public\.sql$/);
+  const sql = fs.readFileSync(path.join(dir, names[0]), "utf8");
+  const body = sql.replace(/--.*$/gm, "");
+  assert.match(sql, /ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;/);
+  assert.match(sql, /ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;/);
+  assert.match(sql, /ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated;/);
+  assert.match(sql, /ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;/);
+  assert.match(sql, /ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;/);
+  assert.match(sql, /ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated;/);
+  assert.equal(/\brevoke\s+all\s+on\s+all\s+tables\b/i.test(body), false);
+  assert.equal(/\brevoke\s+all\s+on\s+table\s+/i.test(body), false);
+  assert.equal(/\bgrant\b/i.test(body), false);
+  assert.equal(/\b(create|drop|alter)\s+table\b/i.test(body), false);
   assert.equal(fs.existsSync(canonical), true);
 });
 

@@ -1,3 +1,3 @@
-Folder ini sengaja kosong.
-Berkas pemasangan yang dipakai adalah supabase/pemasangan/toko_kita_pemasangan_awal.sql.
+Berkas pemasangan keadaan awal tetap supabase/pemasangan/toko_kita_pemasangan_awal.sql.
+Satu migrasi di folder ini hanya mencabut default privileges untuk objek baru, dan belum dijalankan ke proyek jarak jauh.
 Jangan mengembalikan enam migrasi lama ke jalur deploy.

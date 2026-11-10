@@ -12,7 +12,7 @@ Selama tabel produk akun kosong, etalase menampilkan delapan contoh `catalog.jso
 
 ## Jalur pemasangan satu berkas
 
-Jangan menggabungkan PR #3, #4, atau #5 ke `main` sendiri, dan jangan menerapkan enam berkas migrasi lama. Di riwayat git berkas itu masih ada, tetapi folder `supabase/migrations` pada cabang pemasangan sengaja kosong supaya `supabase db push` tidak memasang definisi sementara.
+Jangan menggabungkan PR #3, #4, atau #5 ke `main` sendiri, dan jangan menerapkan enam berkas migrasi lama. Di riwayat git berkas itu masih ada. Folder `supabase/migrations` sekarang hanya berisi pencabutan default privileges untuk objek yang dibuat kemudian (`*_cabut_default_privileges_public.sql`). Berkas itu belum dijalankan ke proyek jarak jauh. Jangan `db push` sebelum pemilik meninjau SQL-nya. Migrasi itu tidak mengubah GRANT pada tabel yang sudah ada.
 
 Satu-satunya SQL pemasangan adalah `supabase/pemasangan/toko_kita_pemasangan_awal.sql`. Berkas itu membuat keadaan akhir langsung: fungsi istimewa ada di `private`, RPC `public` adalah security invoker, dan tidak ada `SECURITY DEFINER` di `public` bahkan di tengah berkas. Setelah objek dibuat, berkas mencabut hak `PUBLIC`, `anon`, dan `authenticated` yang diwarisi dari default ACL Supabase, lalu memberi hanya izin yang dimaksud. `service_role` tetap boleh membaca dan menulis data aplikasi serta menjalankan RPC pembayaran, tanpa `TRUNCATE`, `REFERENCES`, atau `TRIGGER`. Default global tidak diubah. Berkas tidak berisi `BEGIN` atau `COMMIT`.
 
