@@ -233,6 +233,28 @@
     return wishlistNeedsRepair(raw, ids);
   }
 
+  var RECENT_LIMIT = 8;
+
+  function rememberViewed(ids, productId) {
+    var list = Array.isArray(ids) ? ids.slice() : [];
+    var id = canonicalProductId(productId);
+    if (id == null) return list;
+    list = list.filter(function (item) { return String(item) !== String(id); });
+    return [id].concat(list).slice(0, RECENT_LIMIT);
+  }
+
+  function parseStoredRecent(raw, knownIds) {
+    return parseStoredWishlist(raw, knownIds).slice(0, RECENT_LIMIT);
+  }
+
+  function recentNeedsRepair(raw, ids) {
+    return wishlistNeedsRepair(raw, ids);
+  }
+
+  function clearViewed() {
+    return [];
+  }
+
   function availabilityLabel(product) {
     if (!product) return "Tidak ada di katalog";
     if (product.visible === false) return "Tidak ditampilkan";
@@ -696,6 +718,11 @@
     totalPrice: totalPrice,
     canCheckout: canCheckout,
     COMPARE_LIMIT: COMPARE_LIMIT,
+    RECENT_LIMIT: RECENT_LIMIT,
+    rememberViewed: rememberViewed,
+    parseStoredRecent: parseStoredRecent,
+    recentNeedsRepair: recentNeedsRepair,
+    clearViewed: clearViewed,
     toggleWishlist: toggleWishlist,
     toggleCompare: toggleCompare,
     parseStoredCompare: parseStoredCompare,

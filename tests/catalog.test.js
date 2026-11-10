@@ -338,6 +338,25 @@ test("detail publik, galeri, dan tautan WhatsApp memakai jalur Pages", () => {
   assert.equal(strippedText.includes("pratinjau"), false);
 });
 
+test("riwayat dilihat menyimpan id terbaru, membuang yang tidak sah, dan paling banyak delapan", () => {
+  assert.equal(catalog.RECENT_LIMIT, 8);
+  assert.deepEqual(catalog.rememberViewed([], 4), [4]);
+  assert.deepEqual(catalog.rememberViewed([4, 2], 1), [1, 4, 2]);
+  assert.deepEqual(catalog.rememberViewed([1, 4, 2], 4), [4, 1, 2]);
+  assert.deepEqual(catalog.rememberViewed([1], "<script>alert(1)</script>"), [1]);
+  assert.deepEqual(catalog.rememberViewed([1], "bukan-id"), [1]);
+  const capped = [8, 7, 6, 5, 4, 3, 2, 1].reduce((list, id) => catalog.rememberViewed(list, id), []);
+  assert.deepEqual(capped, [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(capped.length, 8);
+  assert.deepEqual(catalog.clearViewed(), []);
+  const raw = JSON.stringify([2, 2, "x", 99, "<script>", 8, 1]);
+  const known = products.map((product) => product.id);
+  assert.deepEqual(catalog.parseStoredRecent(raw, known), [2, 8, 1]);
+  assert.equal(catalog.recentNeedsRepair(raw, [2, 8, 1]), true);
+  assert.deepEqual(catalog.parseStoredRecent("bukan-json", known), []);
+  assert.deepEqual(catalog.parseStoredRecent(JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9]), [1, 2, 3, 4, 5, 6, 7, 8, 9]), [1, 2, 3, 4, 5, 6, 7, 8]);
+});
+
 test("halaman mempertahankan checkout, merek, dan batas demo", () => {
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const script = fs.readFileSync(path.join(root, "script.js"), "utf8");
@@ -366,6 +385,10 @@ test("halaman mempertahankan checkout, merek, dan batas demo", () => {
   assert.match(script, /tokoKitaCart/);
   assert.match(script, /tokoKitaWishlist/);
   assert.match(script, /tokoKitaBanding/);
+  assert.match(script, /tokoKitaBaruDilihat/);
+  assert.match(html, /id="recentSection"/);
+  assert.match(html, /Baru dilihat/);
+  assert.match(html, /Hapus riwayat/);
   assert.match(script, /Bagikan lewat WhatsApp/);
   assert.match(script, /whatsappShareUrl/);
   assert.match(sources, /yeyenmuhidin\.github\.io/);

@@ -29,6 +29,7 @@
   var CART_KEY = "tokoKitaCart";
   var WISHLIST_KEY = "tokoKitaWishlist";
   var COMPARE_KEY = "tokoKitaBanding";
+  var RECENT_KEY = "tokoKitaBaruDilihat";
   var ACTIVE_CATEGORY = "snap-start shrink-0 rounded-full px-4 py-2 min-h-11 text-sm font-medium bg-indigo-600 text-white";
   var IDLE_CATEGORY = "snap-start shrink-0 rounded-full px-4 py-2 min-h-11 text-sm font-medium bg-indigo-50 text-indigo-800 border border-indigo-100 hover:border-indigo-400";
 
@@ -91,7 +92,8 @@
     "clear-compare": true,
     "set-category": true,
     "reset-filters": true,
-    "shop": true
+    "shop": true,
+    "clear-recent": true
   };
 
   var state = {
@@ -99,6 +101,7 @@
     cart: [],
     wishlist: [],
     compare: [],
+    recent: [],
     detailId: null,
     detailPhoto: 0,
     detailDismissed: false,
@@ -159,6 +162,17 @@
 
   function knownProductIds() {
     return products.map(function (product) { return product.id; });
+  }
+
+  function loadRecent() {
+    var raw = readStorage(RECENT_KEY);
+    var ids = catalog.parseStoredRecent(raw, knownProductIds());
+    if (catalog.recentNeedsRepair(raw, ids)) writeStorage(RECENT_KEY, JSON.stringify(ids));
+    return ids;
+  }
+
+  function persistRecent() {
+    if (!writeStorage(RECENT_KEY, JSON.stringify(state.recent))) paintStorageWarning();
   }
 
   function loadCompare() {
@@ -676,8 +690,48 @@
         "</div>" +
         shareMarkup(view) +
       "</div>" +
-    "</div>" + relatedHtml;
+    "</div>" + relatedHtml + recentDetailMarkup(view.id);
     bindImageFallbacks(detailBody);
+  }
+
+  function recentCard(product) {
+    return '<article class="product-card snap-start shrink-0 w-40 rounded-2xl bg-white shadow-sm overflow-hidden" role="listitem">' +
+      '<button type="button" data-action="open-detail" data-id="' + product.id + '" class="block w-full text-left" aria-label="Lihat detail ' + catalog.escapeHtml(product.name) + '">' +
+        '<div class="aspect-[4/3] bg-indigo-50">' + imageMarkup(product.image, "", "w-full h-full object-cover") + "</div>" +
+        '<div class="p-3">' +
+          '<p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">' + catalog.escapeHtml(product.category) + "</p>" +
+          '<h3 class="mt-1 font-semibold text-sm leading-snug text-gray-900 line-clamp-2">' + catalog.escapeHtml(product.name) + "</h3>" +
+          '<p class="mt-1 text-sm font-bold tabular-nums text-indigo-800">' + catalog.formatRupiah(product.price) + "</p>" +
+        "</div>" +
+      "</button>" +
+    "</article>";
+  }
+
+  function recentProducts(excludeId) {
+    return state.recent.flatMap(function (id) {
+      if (excludeId != null && String(id) === String(excludeId)) return [];
+      var product = productById(id);
+      if (!product || product.visible === false) return [];
+      return [product];
+    });
+  }
+
+  function renderRecent() {
+    var section = document.getElementById("recentSection");
+    var row = document.getElementById("recentRow");
+    if (!section || !row) return;
+    var items = recentProducts(null);
+    section.hidden = items.length === 0;
+    row.innerHTML = items.map(recentCard).join("");
+    bindImageFallbacks(row);
+  }
+
+  function recentDetailMarkup(currentId) {
+    var items = recentProducts(currentId);
+    if (!items.length) return "";
+    return '<section class="mt-8 min-w-0"><div class="flex items-end justify-between gap-3 mb-3"><h3 class="font-semibold">Baru dilihat</h3><button type="button" data-action="clear-recent" class="min-h-11 shrink-0 rounded-xl px-3 text-sm font-medium text-indigo-800">Hapus riwayat</button></div><div class="flex gap-3 overflow-x-auto pb-1 snap-x" role="list">' +
+      items.map(recentCard).join("") +
+    "</div></section>";
   }
 
   function showDetail(id, push) {
@@ -685,6 +739,16 @@
     state.detailId = id;
     requestedProductId = id;
     state.detailDismissed = false;
+    var view = catalog.publicDetail(productById(id), {
+      id: id,
+      demo: demoRequested,
+      catalogError: state.catalogFailed
+    });
+    if (view.status === "tayang") {
+      state.recent = catalog.rememberViewed(state.recent, id);
+      persistRecent();
+      renderRecent();
+    }
     renderDetail();
     if (state.activeModal !== "detail") openModal("detail", { preserveFocusMemory: Boolean(state.activeDrawer || state.activeModal) });
     else detailTitle.focus();
@@ -947,6 +1011,17 @@
       searchInput.focus();
       return;
     }
+    if (action === "clear-recent") {
+      state.recent = catalog.clearViewed();
+      persistRecent();
+      renderRecent();
+      if (state.activeModal === "detail") {
+        renderDetail();
+        detailTitle.focus();
+      } else if (catalogHeading) catalogHeading.focus();
+      announce("Riwayat dilihat dihapus.");
+      return;
+    }
     if (action === "shop") {
       closeAll({ restore: false });
       searchInput.focus();
@@ -965,6 +1040,7 @@
     state.cart = loadCart();
     state.wishlist = loadWishlist();
     state.compare = loadCompare();
+    state.recent = loadRecent();
     applyInitialFilters();
     paintStorageWarning();
     paintChrome();
@@ -972,6 +1048,7 @@
     renderCart();
     renderWishlist();
     renderCompare();
+    renderRecent();
 
     searchInput.addEventListener("input", function () {
       state.filters.query = searchInput.value;
@@ -1133,11 +1210,13 @@
     products = list;
     state.wishlist = loadWishlist();
     state.compare = loadCompare();
+    state.recent = loadRecent();
     applyInitialFilters();
     publishFilters();
     renderCart();
     renderWishlist();
     renderCompare();
+    renderRecent();
     if (requestedProductId != null) showDetail(requestedProductId, false);
   }
 
