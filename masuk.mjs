@@ -1,22 +1,40 @@
-import { createClient } from "./vendor/supabase-js.mjs";
-import { konfigurasiAman } from "./akun.mjs";
+import { konfigurasiAman, teksBerhasilMasuk } from "./akun.mjs";
+import { klienToko } from "./supabase-klien.mjs";
+import { muatTautanAdmin } from "./tautan-admin.mjs";
 
 var banner = document.getElementById("akunBanner");
 var status = document.getElementById("akunStatus");
+var berhasil = document.getElementById("masukBerhasil");
+var berhasilTeks = document.getElementById("masukBerhasilTeks");
 var konfigurasi = konfigurasiAman(window.TOKO_KITA_SUPABASE || {});
 var forms = [document.getElementById("masukForm"), document.getElementById("daftarForm")];
+
+function tampilkanBerhasil(session, jenis, fokus) {
+  if (!session) {
+    berhasil.hidden = true;
+    berhasilTeks.textContent = "";
+    document.getElementById("keluar").hidden = true;
+    return;
+  }
+  berhasil.hidden = false;
+  berhasilTeks.textContent = teksBerhasilMasuk(session.user && session.user.email, jenis);
+  document.getElementById("keluar").hidden = false;
+  status.textContent = "";
+  if (fokus) berhasil.focus();
+}
 
 if (!konfigurasi.ok) {
   banner.textContent = "Akun penjual belum terhubung. " + konfigurasi.reason + " Pendaftaran tidak dijalankan dan tidak ada akun yang dibuat.";
   forms.forEach(function (form) { form.querySelector("button").disabled = true; });
 } else {
   banner.textContent = "URL proyek sudah diisi, tetapi konfirmasi email dan SMTP belum diverifikasi. Pendaftaran dapat gagal sampai pemilik mengatur SMTP. Halaman ini belum berarti masuk siap dipakai. Checkout contoh tidak menagih.";
-  var supabase = createClient(konfigurasi.url, konfigurasi.publishableKey);
+  var supabase = klienToko(window.TOKO_KITA_SUPABASE);
+  async function sinkronSesi(session, jenis, fokus) {
+    tampilkanBerhasil(session, jenis, fokus);
+    await muatTautanAdmin(supabase);
+  }
   supabase.auth.getSession().then(function (result) {
-    if (result.data.session) {
-      status.textContent = "Anda sudah masuk sebagai " + result.data.session.user.email + ".";
-      document.getElementById("keluar").hidden = false;
-    }
+    if (result.data.session) sinkronSesi(result.data.session, "sudah");
   });
   document.getElementById("masukForm").addEventListener("submit", async function (event) {
     event.preventDefault();
@@ -29,8 +47,7 @@ if (!konfigurasi.ok) {
       status.textContent = "Masuk gagal. Periksa email, kata sandi, atau konfirmasi email. Tidak ada sesi yang dibuat.";
       return;
     }
-    status.textContent = "Masuk berhasil.";
-    document.getElementById("keluar").hidden = false;
+    await sinkronSesi(hasil.data.session, "masuk", true);
   });
   document.getElementById("daftarForm").addEventListener("submit", async function (event) {
     event.preventDefault();
@@ -56,12 +73,11 @@ if (!konfigurasi.ok) {
       status.textContent = "Pendaftaran tercatat. Konfirmasi email dulu sebelum masuk. Sesi belum aktif.";
       return;
     }
-    status.textContent = "Daftar dan masuk berhasil.";
-    document.getElementById("keluar").hidden = false;
+    await sinkronSesi(hasil.data.session, "daftar", true);
   });
   document.getElementById("keluar").addEventListener("click", async function () {
     await supabase.auth.signOut();
     status.textContent = "Anda sudah keluar.";
-    document.getElementById("keluar").hidden = true;
+    await sinkronSesi(null);
   });
 }

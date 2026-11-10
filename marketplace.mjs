@@ -1,5 +1,5 @@
-import { createClient } from "./vendor/supabase-js.mjs";
 import { barisKeProduk, konfigurasiAman } from "./akun.mjs";
+import { klienToko } from "./supabase-klien.mjs";
 
 var antrean = window.TokoKitaAntreanKatalog || [];
 window.TokoKitaAntreanKatalog = antrean;
@@ -15,7 +15,7 @@ var konfigurasi = konfigurasiAman(window.TOKO_KITA_SUPABASE || {});
 if (!konfigurasi.ok || demo || pratinjau) {
   // Etalase demo ditangani script.js. Jangan mengirim katalog kosong.
 } else {
-  var supabase = createClient(konfigurasi.url, konfigurasi.publishableKey);
+  var supabase = klienToko(window.TOKO_KITA_SUPABASE);
   supabase.from("etalase").select("id,name,price,description,category,image_path,contoh,seller_name,shop_name").then(async function (result) {
     if (result.error) {
       kirim({ error: "Katalog akun gagal dimuat. Mode demo tidak dipakai otomatis." });

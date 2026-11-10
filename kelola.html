@@ -17,6 +17,7 @@
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
       <a href="./" class="flex items-center gap-2 font-bold text-indigo-700 text-lg">Toko Kita ID</a>
       <span class="text-sm text-gray-600">Kelola katalog</span>
+      <a href="admin.html" data-nav-admin hidden class="text-sm font-medium text-indigo-700 min-h-11 inline-flex items-center">Admin</a>
       <a href="./" class="ml-auto text-sm font-medium text-indigo-700 min-h-11 inline-flex items-center">Ke etalase</a>
     </div>
   </header>
@@ -129,7 +130,9 @@
   </div>
   <p id="liveStatus" class="sr-only" aria-live="polite"></p>
 
+  <script src="supabase-config.js"></script>
   <script src="catalog.js"></script>
   <script src="kelola.js"></script>
+  <script type="module" src="tautan-admin.mjs"></script>
 </body>
 </html>
