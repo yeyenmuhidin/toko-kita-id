@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { createClient } from "./vendor/supabase-js.mjs";
 import { konfigurasiAman } from "./akun.mjs";
 
 var banner = document.getElementById("akunBanner");

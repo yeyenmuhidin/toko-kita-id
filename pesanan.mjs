@@ -1,6 +1,31 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { createClient } from "./vendor/supabase-js.mjs";
 import { konfigurasiAman } from "./akun.mjs";
 
+var HOST_MIDTRANS = ["app.sandbox.midtrans.com", "app.midtrans.com"];
+
+export function urlPembayaranDiizinkan(nilai) {
+  var url;
+  try {
+    url = new URL(String(nilai == null ? "" : nilai));
+  } catch (error) {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  if (url.username || url.password) return false;
+  return HOST_MIDTRANS.indexOf(url.hostname) !== -1;
+}
+
+export function putuskanPengalihan(nilai) {
+  if (!nilai) return { redirect: false, error: "" };
+  if (!urlPembayaranDiizinkan(nilai)) {
+    return { redirect: false, error: "Tautan pembayaran ditolak karena bukan halaman Midtrans yang diizinkan. Pesanan tidak dialihkan." };
+  }
+  return { redirect: true, error: "" };
+}
+
+if (typeof document === "undefined") {
+  // Uji node hanya memakai fungsi di atas.
+} else {
 var banner = document.getElementById("pesananBanner");
 var daftar = document.getElementById("daftarPesanan");
 var form = document.getElementById("bayarForm");
@@ -72,8 +97,11 @@ if (!konfigurasi.ok) {
       return;
     }
     banner.textContent = body.penjelasan || "Pesanan tersimpan. Belum tentu dibayar.";
-    if (body.snap_redirect_url) window.location.assign(body.snap_redirect_url);
+    var keputusan = putuskanPengalihan(body.snap_redirect_url);
+    if (keputusan.error) banner.textContent = keputusan.error;
+    else if (keputusan.redirect) window.location.assign(body.snap_redirect_url);
     muat();
   });
   muat();
+}
 }
